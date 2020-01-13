@@ -37,6 +37,10 @@ class RemoteThermostatController
 
     bool _shouldUseRemoteTemperature = true;
 
+    bool _shouldSendCurrentTemperature = false;
+    bool _shouldSendTargetTemperature = false;
+    bool _shouldGetData = false;
+
     StaticJsonDocument<400> _jsonDocument;
     JsonObject _jsonObject;
 

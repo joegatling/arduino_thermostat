@@ -8,21 +8,46 @@
 
 RemoteThermostatController::RemoteThermostatController(String key, String thermostatName, bool useRemoteTemperature)
 {
-    _apiKey = key;
-    _thermostat = thermostatName;
-    _shouldUseRemoteTemperature = useRemoteTemperature;
-
-    GetDataFromServer();
+  _apiKey = key;
+  _thermostat = thermostatName;
+  _shouldUseRemoteTemperature = useRemoteTemperature;
+  
+  GetDataFromServer();
 }
 
 void RemoteThermostatController::Update()
 {
+  if((millis() - _lastServerUpdate) > SERVER_POLL_INTERVAL)
+  {
+    _shouldSendCurrentTemperature = true;
+    _shouldSendTargetTemperature = true;  
+    _shouldGetData = true;  
+
+    _lastServerUpdate = millis();
+  }  
+  
+  // This if statement ensure we only do one of these operations each update.
+  if(_shouldSendCurrentTemperature && _isCurrentTemperatureSetLocally)
+  {
+    SendCurrentTemperatureToServer();
+    _shouldSendCurrentTemperature = false;
+  }
+  else if(_shouldSendTargetTemperature && _isTargetTemperatureSetLocally)
+  {
+    SendTargetTemperatureToServer();
+    _shouldSendTargetTemperature = false;
+  }
+  else if(_shouldGetData)
+  {
+    GetDataFromServer();
+    _shouldGetData = false;
+  }
 }
     
 void RemoteThermostatController::SetCurrentTemperature(float celsius)
 {
   _currentTemperature = celsius;
-  _isTargetTemperatureSetLocally = true;
+  _isCurrentTemperatureSetLocally = true;
 }
 
 float RemoteThermostatController::GetCurrentTemperature()
