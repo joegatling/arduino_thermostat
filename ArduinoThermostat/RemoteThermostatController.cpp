@@ -2,6 +2,7 @@
 
 #define GET_DATA_URL "http://temp.joegatling.com/get-thermostat-data.php"
 #define SET_CURRENT_TEMPERATURE_URL "http://joegatling.com/sites/temperature/set-current-temperature.php"
+#define SET_TARGET_TEMPERATURE_URL "http://joegatling.com/sites/temperature/set-target-temperature.php"
 
 #define SERVER_POLL_INTERVAL 10000
 
@@ -11,6 +12,10 @@ RemoteThermostatController::RemoteThermostatController(String key, String thermo
   _apiKey = key;
   _thermostat = thermostatName;
   _shouldUseRemoteTemperature = useRemoteTemperature;
+
+  _getDataUrl = String(GET_DATA_URL);
+  _getDataUrl.concat("?key=");
+  _getDataUrl.concat(_apiKey);
   
   GetDataFromServer();
 }
@@ -68,9 +73,6 @@ float RemoteThermostatController::GetTargetTemperature()
   
 void RemoteThermostatController::SendCurrentTemperatureToServer()
 {
-  WiFiClient client;
-  HTTPClient http;
-
   // configure traged server and url
   String url = String(SET_CURRENT_TEMPERATURE_URL);
   url.concat("?key=");
@@ -78,6 +80,26 @@ void RemoteThermostatController::SendCurrentTemperatureToServer()
   url.concat("&c=");
   url.concat(_currentTemperature);
 
+  PostToServer(url);
+}
+
+void RemoteThermostatController::SendTargetTemperatureToServer()
+{
+  // configure traged server and url
+  String url = String(SET_TARGET_TEMPERATURE_URL);
+  url.concat("?key=");
+  url.concat(_apiKey);
+  url.concat("&c=");
+  url.concat(_targetTemperature);
+
+  PostToServer(url);
+}
+
+void RemoteThermostatController::PostToServer(String url)
+{
+  WiFiClient client;
+  HTTPClient http;
+  
   SERIAL_OUPUT.print("URL: ");
   SERIAL_OUPUT.println(url);
   
@@ -106,11 +128,6 @@ void RemoteThermostatController::SendCurrentTemperatureToServer()
   http.end();   
 
   SERIAL_OUPUT.println("");  
-}
-
-void RemoteThermostatController::SendTargetTemperatureToServer()
-{
-  //TODO
 }
 
 void RemoteThermostatController::GetDataFromServer()

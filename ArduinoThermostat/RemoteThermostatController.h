@@ -46,6 +46,9 @@ class RemoteThermostatController
 
     void SendCurrentTemperatureToServer();
     void SendTargetTemperatureToServer();    
+    
     void GetDataFromServer();
+
+    void PostToServer(String url);
 };
 #endif
