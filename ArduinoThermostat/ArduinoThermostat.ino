@@ -4,6 +4,7 @@
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
 #include <AutoPID.h>
+#include <ButtonDebounce.h>
 
 #include "Configuration.h"
 /*
@@ -38,6 +39,8 @@
 #define UP_BUTTON_PIN  D5
 #define DOWN_BUTTON_PIN D6
 
+#define BUTTON_DEBOUNCE_TIME 50
+
 unsigned long lastTemperatureUpdate = 0;
 unsigned long heaterWindowStartTime = 0;
 
@@ -53,16 +56,30 @@ AutoPIDRelay pid(&current, &target, &relayState, HEATER_RELAY_WINDOW_SIZE, KP, K
 #define WINDOW_DISPLAY_WIDTH 30
 char* displayString = new char[WINDOW_DISPLAY_WIDTH+1];
 
-int upButtonState = 0;
-int downButtonState = 0;
+ButtonDebounce upButton(UP_BUTTON_PIN, BUTTON_DEBOUNCE_TIME);
+ButtonDebounce downButton(DOWN_BUTTON_PIN, BUTTON_DEBOUNCE_TIME);
 
 void setup()
 {
   pinMode(STATUS_LED_PIN, OUTPUT);
   pinMode(STATUS_LED_PIN, OUTPUT);
 
-  pinMode(UP_BUTTON_PIN, INPUT);
-  
+  upButton.setCallback([](const int state) 
+  {
+    if(state)
+    {
+      AdjustTargetTemp(1);
+    }
+  });
+
+  downButton.setCallback([](const int state) 
+  {
+    if(state)
+    {
+      AdjustTargetTemp(-1);
+    }
+  });  
+    
   USE_SERIAL.begin(115200);
 
   WiFi.begin(STASSID, STAPSK);
@@ -86,47 +103,30 @@ void loop()
   {
     thermostatController.Update();
   }
-
-
 }
 
 void updateTemperature()
 {
+  upButton.update();
+  downButton.update();
+  
   if ((millis() - lastTemperatureUpdate) > TEMPERATURE_POLL_INTERVAL)
   {
     thermostatController.SetCurrentTemperature(sensors.getTempCByIndex(0));
 
-//    USE_SERIAL.print("Detected temperature is ");
-//    USE_SERIAL.println(thermostatController.GetCurrentTemperature());
-//    USE_SERIAL.println("");
-
     lastTemperatureUpdate = millis();
     sensors.requestTemperatures(); //request reading for next time
   }
+}
 
-  int upButton = digitalRead(UP_BUTTON_PIN);
-  int downButton = digitalRead(DOWN_BUTTON_PIN);
+void AdjustTargetTemp(int delta)
+{
+    int temp = min(MAX_TEMP, max(MIN_TEMP, thermostatController.GetTargetTemperature() + delta));
 
-  if(upButton && !upButtonState)
-  {
-    int temp = min(MAX_TEMP, thermostatController.GetTargetTemperature() + 1);
     thermostatController.SetTargetTemperature(temp);
 
     USE_SERIAL.print("Setting temp to ");
-    USE_SERIAL.println(temp);
-  }
-  upButtonState = upButton;
-
-  if(downButton && !downButtonState)
-  {
-    int temp = max(MIN_TEMP, thermostatController.GetTargetTemperature() - 1);
-    thermostatController.SetTargetTemperature(temp);
-
-    USE_SERIAL.print("Setting temp to ");
-    USE_SERIAL.println(temp);
-  }  
-  downButtonState = downButton;
-
+    USE_SERIAL.println(temp);  
 }
 
 void updateHeaterController()
