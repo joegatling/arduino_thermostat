@@ -5,6 +5,7 @@
 #include <ArduinoJson.h>
 #include <AutoPID.h>
 #include <ButtonDebounce.h>
+#include "RemoteThermostatController.h"
 
 #include "Configuration.h"
 /*
@@ -14,156 +15,142 @@
    Wifi SSID and password.
 */
 
-#include "RemoteThermostatController.h"
+
 
 #define USE_SERIAL Serial
 
-#define SERVER_POLL_INTERVAL 10000
-#define TEMPERATURE_POLL_INTERVAL 800
+#define TEMPERATURE_POLL_INTERVAL   800
+#define HEATER_RELAY_WINDOW_SIZE    30000
 
-#define HEATER_RELAY_WINDOW_SIZE 30000
-
-#define MAX_TEMP 28.0f
+#define MAX_TEMP 30.0f
 #define MIN_TEMP 18.0f
 
 #define KP 0.5
-#define KI 0.05
-#define KD 0.01
+#define KI 0 //0.05
+#define KD 0 //0.01
 
-// Data wire is plugged into pin 2 on the Arduino
-#define ONE_WIRE_BUS 9
-
-#define STATUS_LED_PIN BUILTIN_LED
-#define HEATER_PIN 1
-
-#define UP_BUTTON_PIN  D5
-#define DOWN_BUTTON_PIN D6
+#define ONE_WIRE_PIN      D4
+#define UP_BUTTON_PIN     D5
+#define DOWN_BUTTON_PIN   D6
+#define POWER_BUTTON_PIN  D7
+#define STATUS_LED_PIN    BUILTIN_LED
+#define HEATER_PIN        D2
 
 #define BUTTON_DEBOUNCE_TIME 50
 
-unsigned long lastTemperatureUpdate = 0;
-unsigned long heaterWindowStartTime = 0;
 
+
+unsigned long lastTemperatureUpdate = 0;
 RemoteThermostatController thermostatController(API_KEY, THERMOSTAT_NAME, false);
 
-OneWire oneWire(ONE_WIRE_BUS);
+OneWire oneWire(ONE_WIRE_PIN);
 DallasTemperature sensors(&oneWire);
 
 double target, current;
 bool relayState;
 AutoPIDRelay pid(&current, &target, &relayState, HEATER_RELAY_WINDOW_SIZE, KP, KI, KD);
 
-#define WINDOW_DISPLAY_WIDTH 30
-char* displayString = new char[WINDOW_DISPLAY_WIDTH+1];
-
 ButtonDebounce upButton(UP_BUTTON_PIN, BUTTON_DEBOUNCE_TIME);
 ButtonDebounce downButton(DOWN_BUTTON_PIN, BUTTON_DEBOUNCE_TIME);
 
+
+
 void setup()
 {
-  pinMode(STATUS_LED_PIN, OUTPUT);
-  pinMode(STATUS_LED_PIN, OUTPUT);
-
-  upButton.setCallback([](const int state) 
-  {
-    if(state)
-    {
-      AdjustTargetTemp(1);
-    }
-  });
-
-  downButton.setCallback([](const int state) 
-  {
-    if(state)
-    {
-      AdjustTargetTemp(-1);
-    }
-  });  
+    USE_SERIAL.begin(115200);
     
-  USE_SERIAL.begin(115200);
+    pinMode(STATUS_LED_PIN, OUTPUT);
+  
+    upButton.setCallback([](const int state) 
+    {
+        if(state)
+        {
+            adjustTargetTemp(1);
+        }
+    });
+  
+    downButton.setCallback([](const int state) 
+    {
+        if(state)
+        {
+            adjustTargetTemp(-1);
+        }
+    });  
+      
 
-  WiFi.begin(STASSID, STAPSK);
-
-  USE_SERIAL.print("Connecing to Wireless...");
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(500);
-    USE_SERIAL.print(".");
-  }
-  USE_SERIAL.println(" Done");
+    sensors.requestTemperatures(); // Get initial temperature reading
+  
+    WiFi.begin(STASSID, STAPSK);
+  
+    USE_SERIAL.print("Connecing to Wireless...");
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        delay(500);
+        USE_SERIAL.print(".");
+    }
+    USE_SERIAL.println(" Done");
 }
 
 void loop()
 {
-  updateTemperature();
-  updateHeaterController();
-
-  // wait for WiFi connection
-  if (WiFi.status() == WL_CONNECTED)
-  {
-    thermostatController.Update();
-  }
+    updateTemperature();
+    updateHeaterController();
+  
+    // wait for WiFi connection
+    if (WiFi.status() == WL_CONNECTED)
+    {
+        thermostatController.Update();
+    }
 }
 
 void updateTemperature()
 {
-  upButton.update();
-  downButton.update();
-  
-  if ((millis() - lastTemperatureUpdate) > TEMPERATURE_POLL_INTERVAL)
-  {
-    thermostatController.SetCurrentTemperature(sensors.getTempCByIndex(0));
+    upButton.update();
+    downButton.update();
+    
+    if ((millis() - lastTemperatureUpdate) > TEMPERATURE_POLL_INTERVAL)
+    {
+        thermostatController.SetCurrentTemperature(sensors.getTempCByIndex(0));
 
-    lastTemperatureUpdate = millis();
-    sensors.requestTemperatures(); //request reading for next time
-  }
+//        USE_SERIAL.println(sensors.getTempCByIndex(0));
+      
+        lastTemperatureUpdate = millis();
+        sensors.requestTemperatures(); //request reading for next time
+    }
 }
 
-void AdjustTargetTemp(int delta)
+void adjustTargetTemp(int delta)
 {
     int temp = min(MAX_TEMP, max(MIN_TEMP, thermostatController.GetTargetTemperature() + delta));
-
     thermostatController.SetTargetTemperature(temp);
 
     USE_SERIAL.print("Setting temp to ");
     USE_SERIAL.println(temp);  
 }
 
+void toggleHeater(bool isOn)
+{
+    if (isOn)
+    {
+        digitalWrite(HEATER_PIN, LOW);
+        digitalWrite(STATUS_LED_PIN, LOW);
+    }  
+    else
+    {
+        digitalWrite(HEATER_PIN, HIGH);
+        digitalWrite(STATUS_LED_PIN, HIGH);
+    }  
+}
+
 void updateHeaterController()
 {
-  current = (double)thermostatController.GetCurrentTemperature();
-  target = (double)thermostatController.GetTargetTemperature();
+    current = (double)thermostatController.GetCurrentTemperature();
+    target = (double)thermostatController.GetTargetTemperature();
+  
+    pid.run();
 
-  pid.run();
+    toggleHeater(relayState);
 
-  if (relayState)
-  {
-    digitalWrite(HEATER_PIN, LOW);
-    digitalWrite(STATUS_LED_PIN, LOW);
-  }  
-  else
-  {
-    digitalWrite(HEATER_PIN, HIGH);
-    digitalWrite(STATUS_LED_PIN, HIGH);
-  }
-
-   // Debug Output
-  int displayWidth = 20;
-  int on = (pid.getPulseValue() / (float)HEATER_RELAY_WINDOW_SIZE) * displayWidth;
-  int off = displayWidth - on;
-
-  for(int i = 0; i < WINDOW_DISPLAY_WIDTH; i++)
-  {
-      if(i <= on)
-      {
-        displayString[i] = '^';
-      }
-      else
-      {
-        displayString[i] = '_';
-      }
-  }
-  displayString[displayWidth] = '\0';
 //
 //  USE_SERIAL.print("Current temperature: ");
 //  USE_SERIAL.println(current);

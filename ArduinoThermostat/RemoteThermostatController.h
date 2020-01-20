@@ -8,6 +8,8 @@
 #include <asyncHTTPrequest.h>
 
 #define SERIAL_OUPUT Serial
+//#define JSON_SIZE 2*JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(4) + JSON_OBJECT_SIZE(5) + 248
+#define JSON_SIZE 512
 
 class RemoteThermostatController
 {
@@ -43,7 +45,8 @@ class RemoteThermostatController
     bool _shouldSendTargetTemperature = false;
     bool _shouldGetData = false;
 
-    StaticJsonDocument<400> _jsonDocument;
+    
+    StaticJsonDocument<JSON_SIZE> _jsonDocument;
     JsonObject _jsonObject;
 
     asyncHTTPrequest _request;

@@ -7,7 +7,8 @@ include_once 'common.php';
 // $dbName = "joegatling_thermostat";
 // $table = "temperature_read";
 
-$thermostat = "default";
+$thermostat = $defaultThermostat;
+
 $celsius = "-270";
 $result = "OK";
 
@@ -42,14 +43,17 @@ if(isset($_GET['thermostat']))
 
 if($result == "OK")
 {
+	$thermostatInfo = GetThermostatInfo($thermostat);
+	$timestamp = new DateTime("now", new DateTimeZone($thermostatInfo['time_zone']));
+	$formattedTimestamp = $timestamp->format('Y-m-d H:i:s');
+
 	$privileges = GetPrivileges($api_key);
 
 	if($privileges->CanWriteCurrent())
 	{
 		$mysqli = new mysqli($dbUrl, $dbUser, $dbPass, $dbName);
 
-		$timestamp = time();
-		$query = "INSERT INTO $tableCurrentTemperature (thermostat, celsius) VALUES('$thermostat', $celsius)";
+		$query = "INSERT INTO $tableCurrentTemperature (thermostat, celsius, timestamp) VALUES('$thermostat', $celsius, '$formattedTimestamp')";
 
 		$mysqli->query($query);
 

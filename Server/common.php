@@ -81,5 +81,43 @@ function GetPrivileges($apiKey)
     return $privileges;
 }
 
+function GetThermostatInfo($thermostatName)
+{
+    global $dbUser;
+    global $dbPass;
+    global $dbUrl;
+    global $dbName;
+    
+    global $tableThermostats;
+
+	$mysqli = new mysqli($dbUrl, $dbUser, $dbPass, $dbName);
+	
+    if ($mysqli->connect_error) 
+    {
+		die('Connect Error (' . $mysqli->connect_errno . ') ' . $mysqli->connect_error);
+	}		
+
+    $info = array("test" => $thermostatName);
+
+	$query = "SELECT * FROM $tableThermostats WHERE thermostat = '$thermostatName' LIMIT 1;"; 
+
+	if($result = $mysqli->query($query))
+	{
+        while($row = $result->fetch_assoc())
+		{
+            $info = $row;
+        }
+        
+        $result->free();
+    }
+    else
+    {
+        $info['error'] = "ERR_INVALID_THERMOSTAT";
+    }
+
+    $mysqli->close();	    
+
+    return $info;
+}
 
 ?>

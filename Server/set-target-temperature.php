@@ -1,15 +1,9 @@
 <?php
-$dbUser = "nodemcu";
-$dbPass = "netxaX-zabtej-6qucmy";
-$dbUrl = "joegatling.powwebmysql.com";
-$dbName = "joegatling_thermostat";
-$table = "temperature_set";
-
 include_once 'common.php';
 
 $user = "defaultUser";
 
-$thermostat = "default";
+$thermostat = $defaultThermostat;
 $celsius = "-270";
 $result = "OK";
 
@@ -55,6 +49,11 @@ if($result == "OK")
 {
 	$privileges = GetPrivileges($api_key);
 
+	$thermostatInfo = GetThermostatInfo($thermostat);
+	$timestamp = new DateTime("now", new DateTimeZone($thermostatInfo['time_zone']));
+	$formattedTimestamp = $timestamp->format('Y-m-d H:i:s');
+
+
 	if($privileges->CanWriteTarget())
 	{
 		$mysqli = new mysqli($dbUrl, $dbUser, $dbPass, $dbName);
@@ -64,7 +63,7 @@ if($result == "OK")
 		}		
 
 		$timestamp = time();
-		$query = "INSERT INTO $tableTargetTemperature (thermostat, user, celsius) VALUES('$thermostat', '$user', $celsius)";
+		$query = "INSERT INTO $tableTargetTemperature (thermostat, user, celsius, timestamp) VALUES('$thermostat', '$user', $celsius, '$formattedTimestamp')";
 		$mysqli->query($query);
 
 		$mysqli->close();

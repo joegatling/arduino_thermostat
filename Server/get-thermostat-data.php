@@ -3,7 +3,8 @@ include_once 'common.php';
 
 $errorMessage = "";
 
-$thermostat = "default";
+$thermostat = $defaultThermostat;
+
 if(isset($_GET['thermostat']))
 {
 	$thermostat = $_GET['thermostat'];
@@ -23,7 +24,9 @@ $privileges = GetPrivileges($api_key);
 $dataReading = array();
 $dataSetPoint = array();
 
-$data = array('thermostat' => $thermostat);
+$thermostatInfo = GetThermostatInfo($thermostat);
+
+$data = array('thermostat' => $thermostatInfo);
 
 $mysqli = new mysqli($dbUrl, $dbUser, $dbPass, $dbName);
 
@@ -81,7 +84,6 @@ else
 {
 	$data['target'] = array("error" => "ERR_NO_READ_CURRENT_PRIVILEGES");
 }
-
 
 $data['error'] = $errorMessage;
 echo json_encode($data);

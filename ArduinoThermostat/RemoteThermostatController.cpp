@@ -17,6 +17,8 @@ RemoteThermostatController::RemoteThermostatController(String key, String thermo
   _getDataUrl = String(GET_DATA_URL);
   _getDataUrl.concat("?key=");
   _getDataUrl.concat(_apiKey);
+  _getDataUrl.concat("&thermostat=");
+  _getDataUrl.concat(_thermostat);
 
   _request.setDebug(false);
   _isRequestActive = false;
@@ -87,6 +89,8 @@ void RemoteThermostatController::SendCurrentTemperatureToServer()
     url.concat(_apiKey);
     url.concat("&c=");
     url.concat(_currentTemperature);
+    url.concat("&thermostat=");
+    url.concat(_thermostat);
 
     _request.onReadyStateChange([=](void* optParm, asyncHTTPrequest* request, int readyState)
     {
@@ -114,6 +118,9 @@ void RemoteThermostatController::SendTargetTemperatureToServer()
     url.concat(_apiKey);
     url.concat("&c=");
     url.concat(_targetTemperature);
+    url.concat("&thermostat=");
+    url.concat(_thermostat);
+    
 
     _request.onReadyStateChange([=](void* optParm, asyncHTTPrequest* request, int readyState)
     {
@@ -174,8 +181,8 @@ void RemoteThermostatController::AsyncRequestResponseGetData()
   {
     const String& payload = _request.responseText();
     
-    SERIAL_OUPUT.println("received payload:");
-    SERIAL_OUPUT.print(payload);
+    SERIAL_OUPUT.println("Thermostat Data:");
+    SERIAL_OUPUT.println(payload);
     
     auto error = deserializeJson(_jsonDocument, payload);
     
@@ -186,19 +193,24 @@ void RemoteThermostatController::AsyncRequestResponseGetData()
       if(_shouldUseRemoteTemperature && !_isCurrentTemperatureSetLocally && _jsonObject["current"].containsKey("celsius"))
       {
         _currentTemperature = float(_jsonObject["current"]["celsius"]);
-        SERIAL_OUPUT.print("Current Temperature: ");
-        SERIAL_OUPUT.println(_currentTemperature);
+//        SERIAL_OUPUT.print("Current Temperature: ");
+//        SERIAL_OUPUT.println(_currentTemperature);
       }
     
       if(!_isTargetTemperatureSetLocally && _jsonObject["target"].containsKey("celsius"))
       {
         _targetTemperature = float(_jsonObject["target"]["celsius"]);
-        SERIAL_OUPUT.print("Target Temperature: ");
-        SERIAL_OUPUT.println(_targetTemperature);
+//        SERIAL_OUPUT.print("Target Temperature: ");
+//        SERIAL_OUPUT.println(_targetTemperature);
       }
     
       _isCurrentTemperatureSetLocally = false;
       _isTargetTemperatureSetLocally = false;
+    }
+    else
+    {
+      SERIAL_OUPUT.print(F("deserializeJson() failed: "));
+      SERIAL_OUPUT.println(error.c_str());      
     }
   }
 }

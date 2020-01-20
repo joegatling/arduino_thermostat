@@ -1,15 +1,7 @@
 <!DOCTYPE html>
 
 <?php
-$dbUser = "nodemcu";
-$dbPass = "netxaX-zabtej-6qucmy";
-$dbUrl = "joegatling.powwebmysql.com";
-$dbName = "joegatling_thermostat";
-$table = "temperature_set";
-
-$thermostatId = "default";
-$celsius = 0;
-$timestamp = 0;
+include_once 'config.php';
 
 if(isset($_GET['zone']))
 {
