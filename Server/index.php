@@ -35,12 +35,18 @@ if(isset($_GET['zone']))
         <div id="container">
 		<div id="infoCard">	
             <p id="loading">Loading...</p>
-            <p class="setTemp showAfterLoading"><span id="setTempValue">24</span>C</p>
+            <p class="heaterOff showAfterLoading" id="heaterOff">OFF</p>
+            <p class="setTemp showAfterLoading" id="setTemp"><span id="setTempValue">24</span>C</p>
             <p class="currentTemp showAfterLoading"><span id="currentTempValue">24</span>C</p>
             <p class="currentTimestamp showAfterLoading" id="currentTimestamp">Updated moments ago</p>
+            <p class="formatToggle showAfterLoading" id="temperatureFormat">
+                <a id="celsiusToggle" href="">Use Celsius</a>
+                <a id="fahrenheitToggle" href="">Use Fahrenheit</a>
+            </p>
             <!-- <p class="currentTempAlt showAfterLoading"><span id="currentTempAltValue">75</span>F</p> -->
         </div>
         <div id="controls">
+            <a id="togglePower" class="controlButton" href="#" alt="Power"><span>Power</span></a>
 	        <a id="decreaseTemp" class="controlButton" href="#" alt="Decrease Temperature"><span>-</span></a>
 	        <a id="increaseTemp" class="controlButton" href="#" alt="Increase Temperature"><span>+</span></a>
         </div>
@@ -61,8 +67,23 @@ if(isset($_GET['zone']))
             { 
                 setInterval(UpdateThermostatData, 5000);
                 
-                $("#increaseTemp").click(function(e) {e.preventDefault(); IncreaseSetTemperature(); return false; })
-                $("#decreaseTemp").click(function(e) {e.preventDefault(); DecreaseSetTemperature(); return false; })
+                $("#increaseTemp").click(function(e) {e.preventDefault(); IncreaseSetTemperature(); return false; });
+                $("#decreaseTemp").click(function(e) {e.preventDefault(); DecreaseSetTemperature(); return false; });
+                $("#togglePower").click(function(e) {e.preventDefault(); TogglePower(); return false; });
+
+                if(IsTemperatureFarenheit())
+                {
+                    $("#fahrenheitToggle").hide();
+                    $("#celsiusToggle").show();
+                }
+                else
+                {
+                    $("#fahrenheitToggle").show();
+                    $("#celsiusToggle").hide();
+                }
+
+                $("#fahrenheitToggle").click(function(e) {e.preventDefault(); SetTemperatureToFahrenheit(true); return false; });
+                $("#celsiusToggle").click(function(e) {e.preventDefault(); SetTemperatureToFahrenheit(false); return false; });
 			});        	
         </script>
 

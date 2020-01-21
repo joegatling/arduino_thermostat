@@ -41,6 +41,8 @@ if(isset($_GET['thermostat']))
 	$thermostat = $_GET['thermostat'];
 }
 
+
+
 if($result == "OK")
 {
 	$thermostatInfo = GetThermostatInfo($thermostat);

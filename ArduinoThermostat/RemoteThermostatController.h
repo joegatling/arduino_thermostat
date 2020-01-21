@@ -24,6 +24,9 @@ class RemoteThermostatController
 
     void SetTargetTemperature(float celsius);
     float GetTargetTemperature();
+
+    void SetPowerState(bool isOn);
+    boolean GetPowerState();
       
   private: 
 
@@ -33,6 +36,11 @@ class RemoteThermostatController
 
     float _currentTemperature = 0;
     float _targetTemperature = 0;
+
+    bool _isThermostatOn = true;
+
+    float _maxTemp = 30.0f;
+    float _minTemp = 16.0f;
 
     unsigned long _lastServerUpdate = 0;
 

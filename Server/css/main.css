@@ -119,6 +119,15 @@ textarea {
     font-weight: 200;
 }
 
+.heaterOff
+{
+	font-size: 120px;
+	margin: 0;
+	padding: 0;
+    text-align: center;
+    font-weight: 100;
+}
+
 .dateInfo
 {
     text-align: center;
@@ -139,7 +148,7 @@ textarea {
     font-weight: 100;
 }
 
-.currentTimestamp
+.currentTimestamp, .formatToggle
 {
     font-size: 10px;
     font-weight: 400;
@@ -156,7 +165,7 @@ textarea {
 {
     display: grid;
     grid-gap: 8px;
-    grid-template-columns: 64px 64px;    
+    grid-template-columns: 64px 64px 64px;    
 
     justify-items: stretch;
     align-items: stretch;
@@ -200,6 +209,13 @@ textarea {
     background-position: center;    
 }
 
+#togglePower
+{
+    background-image: url("../img/controls_power.png");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;    
+}
 
 #controls a:hover
 {

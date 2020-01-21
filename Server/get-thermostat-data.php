@@ -62,7 +62,7 @@ else
 
 if($privileges->CanReadTarget())
 {
-	$query = "SELECT timestamp, celsius FROM $tableTargetTemperature WHERE thermostat = '$thermostat' ORDER BY timestamp DESC LIMIT 1;";
+	$query = "SELECT timestamp, celsius, power FROM $tableTargetTemperature WHERE thermostat = '$thermostat' ORDER BY timestamp DESC LIMIT 1;";
 
 	if($result = $mysqli->query($query))
 	{

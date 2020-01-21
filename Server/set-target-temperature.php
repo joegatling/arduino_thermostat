@@ -7,6 +7,8 @@ $thermostat = $defaultThermostat;
 $celsius = "-270";
 $result = "OK";
 
+$isThermostatOn = true;
+
 $minTemperature = 18.0;
 $maxTemperature = 28.0;
 
@@ -40,6 +42,11 @@ if(isset($_GET['user']))
 	$user = $_GET['user'];
 }
 
+if(isset($_GET['power']))
+{
+	$isThermostatOn = $_GET['power'];
+}
+
 if(isset($_GET['thermostat']))
 {
 	$thermostat = $_GET['thermostat'];
@@ -63,7 +70,7 @@ if($result == "OK")
 		}		
 
 		$timestamp = time();
-		$query = "INSERT INTO $tableTargetTemperature (thermostat, user, celsius, timestamp) VALUES('$thermostat', '$user', $celsius, '$formattedTimestamp')";
+		$query = "INSERT INTO $tableTargetTemperature (thermostat, user, celsius, power, timestamp) VALUES('$thermostat', '$user', $celsius, $isThermostatOn, '$formattedTimestamp')";
 		$mysqli->query($query);
 
 		$mysqli->close();
