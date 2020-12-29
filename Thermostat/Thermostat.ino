@@ -231,10 +231,38 @@ void updateLED()
         matrix.print(F("c"));        
       }  
     }
+
+    drawPulseState();
   }
   
   matrix.writeDisplay();
   
+}
+
+void drawPulseState()
+{
+  int totalWidth = 16;
+  int blinking = (int)(millis() / 500) % 2;
+
+
+  float t = (millis() - pid.getLastPulseTime());
+  t /= HEATER_RELAY_WINDOW_SIZE;
+//  
+//  USE_SERIAL.print(F("Millis: "));
+//  USE_SERIAL.print(millis());
+//  USE_SERIAL.print(F("  Last Time: "));
+//  USE_SERIAL.println(pid.getLastPulseTime());
+//  USE_SERIAL.print(F("T: "));
+//  USE_SERIAL.println(t);
+
+  if(pid.getPulseValue() > 0.0f)
+  {
+    matrix.drawLine(0,6,pid.getPulseValue() * totalWidth,6,LED_ON);
+  }
+  matrix.drawLine(0,7,totalWidth,7,LED_ON);
+  matrix.drawPixel(t * totalWidth, 7, blinking);
+  //matrix.drawLine(0,7,(int)((pid.getPulseValue() / HEATER_RELAY_WINDOW_SIZE) * totalWidth),7,1);
+    
 }
 
 void updateTemperature()

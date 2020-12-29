@@ -7,9 +7,17 @@
 #include <ESP8266HTTPClient.h>
 #include <asyncHTTPrequest.h>
 
-#define SERIAL_OUPUT Serial
+#define SERIAL_OUTPUT Serial
 //#define JSON_SIZE 2*JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(4) + JSON_OBJECT_SIZE(5) + 248
 #define JSON_SIZE 512
+
+enum ServerRequestType
+{
+  NO_REQUEST,
+  SEND_CURRENT_TEMPERATURE,
+  SET_TARGET_TEMPERATURE,
+  GET_DATA
+};
 
 class RemoteThermostatController
 {
@@ -29,6 +37,7 @@ class RemoteThermostatController
     boolean GetPowerState();
       
   private: 
+
 
     String _apiKey = "";
     String _thermostat = "default";
@@ -58,9 +67,11 @@ class RemoteThermostatController
     JsonObject _jsonObject;
 
     asyncHTTPrequest _request;
-    bool _isRequestActive = false;
+    //bool _isRequestActive = false;
+    ServerRequestType _currentRequestType;
 
-    void AsyncRequestResponseSetCurrentTemperature();
+    void OnRequestReadyStateChanged(void* optParm, asyncHTTPrequest* request, int readyState);
+    void AsyncRequestResponseSendCurrentTemperature();
     void AsyncRequestResponseSetTargetTemperature();
     void AsyncRequestResponseGetData();
 
@@ -70,7 +81,7 @@ class RemoteThermostatController
     
     void GetDataFromServer();
 
-    bool IsRequestInProgress() { return _isRequestActive; }
+    bool IsRequestInProgress() { return _currentRequestType != NO_REQUEST; }
 
 };
 #endif

@@ -21,7 +21,15 @@ RemoteThermostatController::RemoteThermostatController(String key, String thermo
   _getDataUrl.concat(_thermostat);
 
   _request.setDebug(false);
-  _isRequestActive = false;
+  _request.onReadyStateChange([=](void* optParm, asyncHTTPrequest* request, int readyState)
+  {
+    OnRequestReadyStateChanged(optParm, request, readyState);
+  });
+
+  _currentRequestType = NO_REQUEST;
+
+  // Assume the thermostat is off at first. This will get replaced by server data once it arrives.
+  _isThermostatOn = false;
 
   GetDataFromServer();
 }
@@ -103,16 +111,8 @@ void RemoteThermostatController::SendCurrentTemperatureToServer()
     url.concat(F("&thermostat="));
     url.concat(_thermostat);
 
-    _request.onReadyStateChange([=](void* optParm, asyncHTTPrequest* request, int readyState)
-    {
-      if(readyState == 4)
-      {
-        AsyncRequestResponseSetCurrentTemperature();
-        _isRequestActive = false;
-      }
-    });
-
-    _isRequestActive = true;
+    _currentRequestType = SEND_CURRENT_TEMPERATURE;
+    
     _request.open("GET", url.c_str());
     _request.send();
     
@@ -134,18 +134,8 @@ void RemoteThermostatController::SendTargetTemperatureToServer()
     url.concat(F("&power="));
     url.concat(_isThermostatOn);
     
-
-    _request.onReadyStateChange([=](void* optParm, asyncHTTPrequest* request, int readyState)
-    {
-      if(readyState == 4)
-      {      
-        AsyncRequestResponseSetTargetTemperature();
-        
-        _isRequestActive = false;
-      }
-    });
-
-    _isRequestActive = true;
+    _currentRequestType = SET_TARGET_TEMPERATURE;
+    
     _request.open("GET", url.c_str());
     _request.send();
   }
@@ -155,37 +145,50 @@ void RemoteThermostatController::GetDataFromServer()
 {
   if(!IsRequestInProgress())
   {
-    _request.onReadyStateChange([=](void* optParm, asyncHTTPrequest* request, int readyState)
-    {
-      if(readyState == 4)
-      {
-        AsyncRequestResponseGetData();
-        _isRequestActive = false;
-      }
-    });
+    _currentRequestType = GET_DATA;
 
-    _isRequestActive = true;    
     _request.open("GET", _getDataUrl.c_str());
     _request.send();    
   }
 }
 
-void RemoteThermostatController::AsyncRequestResponseSetCurrentTemperature()
+void RemoteThermostatController::OnRequestReadyStateChanged(void* optParm, asyncHTTPrequest* request, int readyState)
 {
-  if(_request.responseHTTPcode() == 200)
-  {   
-    SERIAL_OUPUT.print(F("Set Current Temp: "));  
-    SERIAL_OUPUT.println(_request.responseText());    
+  if(readyState == 4)
+  {    
+    if(_currentRequestType == SEND_CURRENT_TEMPERATURE)
+    {
+      AsyncRequestResponseSendCurrentTemperature();
+    }
+    else if(_currentRequestType == SET_TARGET_TEMPERATURE)
+    {
+      AsyncRequestResponseSetTargetTemperature();
+    }
+    else if(_currentRequestType == GET_DATA)
+    {
+      AsyncRequestResponseGetData();
+    }   
+
+     _currentRequestType = NO_REQUEST;
   }
+}
+
+void RemoteThermostatController::AsyncRequestResponseSendCurrentTemperature()
+{
+//  if(_request.responseHTTPcode() == 200)
+//  {   
+//    SERIAL_OUTPUT.print(F("Set Current Temp: "));  
+//    SERIAL_OUTPUT.println(_request.responseText());    
+//  }
 }
 
 void RemoteThermostatController::AsyncRequestResponseSetTargetTemperature()
 {
-  if(_request.responseHTTPcode() == 200)
-  {  
-    SERIAL_OUPUT.print(F("Set Target Temp: "));  
-    SERIAL_OUPUT.println(_request.responseText());    
-  }
+//  if(_request.responseHTTPcode() == 200)
+//  {  
+//    SERIAL_OUTPUT.print(F("Set Target Temp: "));  
+//    SERIAL_OUTPUT.println(_request.responseText());    
+//  }
 }
 
 void RemoteThermostatController::AsyncRequestResponseGetData()
@@ -194,8 +197,8 @@ void RemoteThermostatController::AsyncRequestResponseGetData()
   {
     const String& payload = _request.responseText();
     
-    SERIAL_OUPUT.println(F("Thermostat Data:"));
-    SERIAL_OUPUT.println(payload);
+    SERIAL_OUTPUT.println(F("Thermostat Data:"));
+    SERIAL_OUTPUT.println(payload);
     
     auto error = deserializeJson(_jsonDocument, payload);
     
@@ -207,8 +210,8 @@ void RemoteThermostatController::AsyncRequestResponseGetData()
       {
         _currentTemperature = float(_jsonObject[F("current")][F("celsius")]);
 
-        SERIAL_OUPUT.print("Current Temperature: ");
-        SERIAL_OUPUT.println(_currentTemperature);        
+        SERIAL_OUTPUT.print("Current Temperature: ");
+        SERIAL_OUTPUT.println(_currentTemperature);        
       }
     
       if(!_isTargetTemperatureSetLocally)
@@ -217,20 +220,17 @@ void RemoteThermostatController::AsyncRequestResponseGetData()
         {
           _targetTemperature = float(_jsonObject[F("target")][F("celsius")]);
 
-          SERIAL_OUPUT.print("Target Temperature: ");
-          SERIAL_OUPUT.println(_targetTemperature);
+          SERIAL_OUTPUT.print("Target Temperature: ");
+          SERIAL_OUTPUT.println(_targetTemperature);
         }
 
         if(_jsonObject[F("target")].containsKey(F("power")))
         {
           _isThermostatOn = _jsonObject[F("target")]["power"].as<int>() > 0;
 
-          SERIAL_OUPUT.print("Is Thermostat On: ");
-          SERIAL_OUPUT.println(_isThermostatOn  );          
+          SERIAL_OUTPUT.print("Is Thermostat On: ");
+          SERIAL_OUTPUT.println(_isThermostatOn  );          
         }        
-
-//        SERIAL_OUPUT.print("Target Temperature: ");
-//        SERIAL_OUPUT.println(_targetTemperature);
       }
 
       if(_jsonObject.containsKey("thermostat"))
@@ -245,16 +245,13 @@ void RemoteThermostatController::AsyncRequestResponseGetData()
         }   
       }   
 
-        
-      
-    
       _isCurrentTemperatureSetLocally = false;
       _isTargetTemperatureSetLocally = false;
     }
     else
     {
-      SERIAL_OUPUT.print(F("deserializeJson() failed: "));
-      SERIAL_OUPUT.println(error.c_str());      
+      SERIAL_OUTPUT.print(F("deserializeJson() failed: "));
+      SERIAL_OUTPUT.println(error.c_str());      
     }
   }
 }
