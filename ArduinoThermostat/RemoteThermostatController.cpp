@@ -131,6 +131,8 @@ void RemoteThermostatController::SendTargetTemperatureToServer()
     url.concat(_targetTemperature);
     url.concat(F("&thermostat="));
     url.concat(_thermostat);
+    url.concat(F("&power="));
+    url.concat(_isThermostatOn);
     
 
     _request.onReadyStateChange([=](void* optParm, asyncHTTPrequest* request, int readyState)

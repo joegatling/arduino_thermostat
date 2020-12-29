@@ -54,6 +54,8 @@ if(isset($_GET['thermostat']))
 
 if($result == "OK")
 {
+	$celsius = max($minTemperature, min($maxTemperature, $celsius));
+
 	$privileges = GetPrivileges($api_key);
 
 	$thermostatInfo = GetThermostatInfo($thermostat);

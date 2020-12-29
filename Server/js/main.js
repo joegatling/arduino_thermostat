@@ -7,7 +7,7 @@ var lastTargetTemperatureTimestamp = 0;
 var isThermostatOn = true;
 
 var maxTargetTemperature = 28.0;
-var minTargetTemperature = 18.0;
+var minTargetTemperature = 10.0;
 
 var temperatureSendTimeout = 1000.0;
 var currentTemperatureSendTimer = null;
@@ -137,7 +137,7 @@ function DecreaseSetTemperature()
 		newTemp = FahrenheitToCelsius(f - 1);
 	}
 
-	targetTemperatureCelsius = Math.round(Math.min(newTemp, maxTargetTemperature));
+	targetTemperatureCelsius = Math.round(Math.max(newTemp, minTargetTemperature));
 
 	UpdateTargetTemperatureText();
 
@@ -152,7 +152,6 @@ function DecreaseSetTemperature()
 function TogglePower()
 {
 	isThermostatOn = !isThermostatOn;
-	console.log("Toggling power: " + isThermostatOn);
 
 	UpdateCurrentTemperatureText();
 
