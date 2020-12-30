@@ -36,11 +36,14 @@ RemoteThermostatController::RemoteThermostatController(String key, String thermo
 
 void RemoteThermostatController::Update()
 {
+  _wasTemperatureSetRemotely = false;
+  _wasPowerSetRemotely = false;
+  
   if((millis() - _lastServerUpdate) > SERVER_POLL_INTERVAL)
   {
     _shouldSendCurrentTemperature = true;
     _shouldSendTargetTemperature = true;  
-    _shouldGetData = true;  
+    _shouldGetData = _isInLocalMode == false;
 
     _lastServerUpdate = millis();
   }  
@@ -112,7 +115,8 @@ void RemoteThermostatController::SendCurrentTemperatureToServer()
     url.concat(_thermostat);
 
     _currentRequestType = SEND_CURRENT_TEMPERATURE;
-    
+
+    SERIAL_OUTPUT.println(F("Sending Current Temperature"));        
     _request.open("GET", url.c_str());
     _request.send();
     
@@ -135,7 +139,8 @@ void RemoteThermostatController::SendTargetTemperatureToServer()
     url.concat(_isThermostatOn);
     
     _currentRequestType = SET_TARGET_TEMPERATURE;
-    
+
+    SERIAL_OUTPUT.println(F("Sending Target Temperature"));    
     _request.open("GET", url.c_str());
     _request.send();
   }
@@ -147,6 +152,7 @@ void RemoteThermostatController::GetDataFromServer()
   {
     _currentRequestType = GET_DATA;
 
+    SERIAL_OUTPUT.println(F("Get Data"));        
     _request.open("GET", _getDataUrl.c_str());
     _request.send();    
   }
@@ -207,7 +213,7 @@ void RemoteThermostatController::AsyncRequestResponseGetData()
       _jsonObject = _jsonDocument.as<JsonObject>();
     
       if(_shouldUseRemoteTemperature && !_isCurrentTemperatureSetLocally && _jsonObject[F("current")].containsKey("celsius"))
-      {
+      {        
         _currentTemperature = float(_jsonObject[F("current")][F("celsius")]);
 
         SERIAL_OUTPUT.print("Current Temperature: ");
@@ -218,7 +224,13 @@ void RemoteThermostatController::AsyncRequestResponseGetData()
       {
         if(_jsonObject[F("target")].containsKey(F("celsius")))
         {
+          float oldTargetTemperature = _targetTemperature;
           _targetTemperature = float(_jsonObject[F("target")][F("celsius")]);
+
+          if(abs(oldTargetTemperature - _targetTemperature) > 0.01)
+          {
+            _wasTemperatureSetRemotely = true;
+          }
 
           SERIAL_OUTPUT.print("Target Temperature: ");
           SERIAL_OUTPUT.println(_targetTemperature);
@@ -226,7 +238,13 @@ void RemoteThermostatController::AsyncRequestResponseGetData()
 
         if(_jsonObject[F("target")].containsKey(F("power")))
         {
+          bool wasOn = _isThermostatOn;
           _isThermostatOn = _jsonObject[F("target")]["power"].as<int>() > 0;
+
+          if(wasOn != _isThermostatOn)
+          {
+            _wasPowerSetRemotely = true;
+          }
 
           SERIAL_OUTPUT.print("Is Thermostat On: ");
           SERIAL_OUTPUT.println(_isThermostatOn  );          

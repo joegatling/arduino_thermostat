@@ -6,6 +6,7 @@
 #include <ESP8266WiFi.h> 
 #include <ESP8266HTTPClient.h>
 #include <asyncHTTPrequest.h>
+//#include <AsyncHTTPRequest_Generic.h> 
 
 #define SERIAL_OUTPUT Serial
 //#define JSON_SIZE 2*JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(4) + JSON_OBJECT_SIZE(5) + 248
@@ -34,7 +35,14 @@ class RemoteThermostatController
     float GetTargetTemperature();
 
     void SetPowerState(bool isOn);
-    boolean GetPowerState();
+    bool GetPowerState();
+
+    bool WasTemperatureSetRemotely() { return _wasTemperatureSetRemotely; }
+    bool WasPowerSetRemotely() { return _wasPowerSetRemotely; }    
+
+    bool IsInLocalMode() { return _isInLocalMode; }
+    bool SetLocalMode(bool isLocalMode) { _isInLocalMode = isLocalMode; }
+
       
   private: 
 
@@ -62,6 +70,10 @@ class RemoteThermostatController
     bool _shouldSendTargetTemperature = false;
     bool _shouldGetData = false;
 
+    bool _wasTemperatureSetRemotely = false;
+    bool _wasPowerSetRemotely = false;
+
+    bool _isInLocalMode = false;
     
     StaticJsonDocument<JSON_SIZE> _jsonDocument;
     JsonObject _jsonObject;
