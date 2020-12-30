@@ -65,7 +65,7 @@ textarea {
 {
     display: grid;
     grid-template-columns: 300px;
-    grid-template-rows: 300px 64px;
+    grid-template-rows: 400px 64px;
 
     grid-column-gap: 8px;
     grid-row-gap: 8px;        
@@ -103,16 +103,16 @@ textarea {
 
 .currentTemp
 {
-	font-size: 10px;
+	font-size: 24px;
 	margin: 0;
     padding: 0;
     text-align: center;
-    font-weight: 400;
+    font-weight: 200;
 }
 
 .setTemp
 {
-	font-size: 20px;
+	font-size: 32px;
 	margin: 0;
 	padding: 0;
     text-align: center;
@@ -136,7 +136,7 @@ textarea {
 
 #currentTempValue
 {
-    font-size: 20px;
+    font-size: 32px;
     font-weight: 200;
 }
 
@@ -144,7 +144,7 @@ textarea {
 
 #setTempValue
 {
-    font-size: 120px;
+    font-size: 160px;
     font-weight: 100;
 }
 
@@ -154,6 +154,12 @@ textarea {
     font-weight: 400;
     text-align: center;
 }
+
+#currentTimestamp
+{
+    display: none;
+}
+
 
 #loadingIndicator
 {

@@ -1,13 +1,16 @@
 var thermostat = "beachwood";
-var currentTemperatureCelsius = 24.0;
-var targetTemperatureCelsius = 24.0;
+
+var currentTemperature = 24.0;
+var targetTemperature = 24.0;
+
 var lastCurrentTemperatureTimestamp = 0;
 var lastTargetTemperatureTimestamp = 0;
 
 var isThermostatOn = true;
+var useFahrenheit = true;
 
-var maxTargetTemperature = 28.0;
-var minTargetTemperature = 10.0;
+var maxTargetTemperatureCelsius = 28.0;
+var minTargetTemperatureCelsius = 10.0;
 
 var temperatureSendTimeout = 1000.0;
 var currentTemperatureSendTimer = null;
@@ -22,19 +25,34 @@ function UpdateThermostatData()
 		//$('#infoContainer').load('get-reading.php');
 
 		$.getJSON('get-thermostat-data.php', {key: apiKey}, function(jsonData) 
-		{
-
+		{						
 			if(currentTemperatureSendTimer == null)
 			{
-				currentTemperatureCelsius = parseFloat(jsonData.current.celsius);
-				lastCurrentTemperatureTimestamp = jsonData.current.timestamp;
+				if(IsTemperatureFahrenheit())
+				{
+					currentTemperature = parseFloat(jsonData.current.farenheit);
+				}
+				else
+				{
+					currentTemperature = parseFloat(jsonData.current.celsius);
+				}
+
+				lastCurrentTemperatureTimestamp = jsonData.current.timestamp;	
 			}
 			else
 			{
 				console.log("Rejecting temperature from server because we just set it locally.");
 			}
 
-			targetTemperatureCelsius = parseFloat(jsonData.target.celsius);
+			if(IsTemperatureFahrenheit())
+			{
+				targetTemperature = parseFloat(jsonData.target.farenheit);
+			}
+			else
+			{
+				targetTemperature = parseFloat(jsonData.target.celsius);
+			}
+
 			lastTargetTemperatureTimestamp = jsonData.target.timestamp;
 			isThermostatOn = jsonData.target.power > 0;
 
@@ -52,25 +70,30 @@ function UpdateThermostatData()
 
 function UpdateTargetTemperatureText()
 {
-	if(IsTemperatureFarenheit())
+	if(IsTemperatureFahrenheit())
 	{
-		$("#setTempValue").text(Math.round(CelsiusToFahrenheit(Number(targetTemperatureCelsius))));
+		$("#setTempValue").text(Math.round(Number(targetTemperature)));
+		$("#setTempSymbol").text("F");
+
 	}
 	else
 	{
-		$("#setTempValue").text(Math.round(Number(targetTemperatureCelsius)));
+		$("#setTempValue").text(Math.round(Number(targetTemperature)));
+		$("#setTempSymbol").text("C");
 	}
 }
 
 function UpdateCurrentTemperatureText()
 {
-	if(IsTemperatureFarenheit())
+	if(IsTemperatureFahrenheit())
 	{
-		$("#currentTempValue").text(Math.round(CelsiusToFahrenheit(Number(currentTemperatureCelsius))));
+		$("#currentTempValue").text(Math.round(Number(currentTemperature)));
+		$("#currentTempSymbol").text("F");
 	}
 	else
 	{
-		$("#currentTempValue").text(Math.round(Number(currentTemperatureCelsius)));
+		$("#currentTempValue").text(Math.round(Number(currentTemperature)));
+		$("#currentTempSymbol").text("C");
 	}
 
 	if(isThermostatOn == true)
@@ -87,10 +110,21 @@ function UpdateCurrentTemperatureText()
 
 function SendTargetTemperatureToServer()
 {
-	$.get('set-target-temperature.php', {c:targetTemperatureCelsius, key:apiKey, thermostat:thermostat, power:(isThermostatOn ? 1 : 0)}, function(result)
+	if(IsTemperatureFahrenheit())
 	{
-		currentTemperatureSendTimer = null;
-	});
+		$.get('set-target-temperature.php', {f:targetTemperature, key:apiKey, thermostat:thermostat, power:(isThermostatOn ? 1 : 0)}, function(result)
+		{
+			currentTemperatureSendTimer = null;
+		});
+	}
+	else
+	{
+		$.get('set-target-temperature.php', {c:targetTemperature, key:apiKey, thermostat:thermostat, power:(isThermostatOn ? 1 : 0)}, function(result)
+		{
+			currentTemperatureSendTimer = null;
+		});
+	
+	}
 
 }
 
@@ -107,15 +141,21 @@ function FahrenheitToCelsius(fahrenheit)
 
 function IncreaseSetTemperature()
 {
-	var newTemp = targetTemperatureCelsius + 1;
+	var newTemp = targetTemperature + 1;
 
-	if(IsTemperatureFarenheit())
+	// if(IsTemperatureFarenheit())
+	// {
+	// 	var f = CelsiusToFahrenheit(targetTemperature);
+	// 	newTemp = FahrenheitToCelsius(f + 1);
+	// }
+
+	maxTemp = maxTargetTemperatureCelsius;
+	if(useFahrenheit)
 	{
-		var f = CelsiusToFahrenheit(targetTemperatureCelsius);
-		newTemp = FahrenheitToCelsius(f + 1);
+		maxTemp = CelsiusToFahrenheit(maxTargetTemperatureCelsius);		
 	}
 
-	targetTemperatureCelsius = Math.round(Math.min(newTemp, maxTargetTemperature));
+	targetTemperature = Math.round(Math.min(newTemp, maxTemp));
 	
 	UpdateTargetTemperatureText();
 
@@ -129,15 +169,22 @@ function IncreaseSetTemperature()
 
 function DecreaseSetTemperature()
 {
-	var newTemp = targetTemperatureCelsius - 1;
+	var newTemp = targetTemperature - 1;
 
-	if(IsTemperatureFarenheit())
+	// if(IsTemperatureFarenheit())
+	// {
+	// 	var f = CelsiusToFahrenheit(targetTemperature);
+	// 	newTemp = FahrenheitToCelsius(f - 1);
+	// }
+
+
+	minTemp = minTargetTemperatureCelsius;
+	if(useFahrenheit)
 	{
-		var f = CelsiusToFahrenheit(targetTemperatureCelsius);
-		newTemp = FahrenheitToCelsius(f - 1);
+		minTemp = CelsiusToFahrenheit(minTargetTemperatureCelsius);		
 	}
 
-	targetTemperatureCelsius = Math.round(Math.max(newTemp, minTargetTemperature));
+	targetTemperature = Math.round(Math.max(newTemp, minTemp));
 
 	UpdateTargetTemperatureText();
 
@@ -163,14 +210,30 @@ function TogglePower()
 	currentTemperatureSendTimer = setTimeout(function() { SendTargetTemperatureToServer(); currentTemperatureSendTimer = null;}, temperatureSendTimeout);
 }
 
-function SetTemperatureToFahrenheit(isFahrenheit)
+function SetTemperatureToFahrenheit(f)
 {
-	document.cookie = "fahrenheit=" + (isFahrenheit ? 1 : 0);
+	if(useFahrenheit != f)
+	{
+		if(f == true)
+		{
+			currentTemperature = CelsiusToFahrenheit(currentTemperature);
+			targetTemperature = CelsiusToFahrenheit(targetTemperature);
+		}
+		else
+		{
+			currentTemperature = FahrenheitToCelsius(currentTemperature);
+			targetTemperature = FahrenheitToCelsius(targetTemperature);
+		}
+
+		useFahrenheit = f;
+		document.cookie = "fahrenheit=" + (f ? 1 : 0);
+	
+	}
 
 	UpdateTargetTemperatureText();
 	UpdateCurrentTemperatureText();
 
-	if(isFahrenheit)
+	if(f)
 	{
 		$("#fahrenheitToggle").hide();
 		$("#celsiusToggle").show();
@@ -183,22 +246,31 @@ function SetTemperatureToFahrenheit(isFahrenheit)
 
 }
 
-function IsTemperatureFarenheit()
+function IsTemperatureFahrenheit()
 {
-	var allCookies = document.cookie;
-			
-	cookieArray = allCookies.split(';');
-	   
-	// Now take key value pair out of this array
-	for(var i=0; i<cookieArray.length; i++) {
-	   name = cookieArray[i].split('=')[0];
-	   value = cookieArray[i].split('=')[1];
-	   
-	   if(name == "fahrenheit")
-	   {
-		   return Number(value) == 1;
-	   }
-	}	
-	
-	return false;	
+	return useFahrenheit;
+
+
+	// return false;	
+}
+
+function ReadCookieData()
+{
+	if (navigator.cookieEnabled)
+	{
+		var allCookies = document.cookie;
+				
+		cookieArray = allCookies.split(';');
+		
+		// Now take key value pair out of this array
+		for(var i=0; i<cookieArray.length; i++) {
+		name = cookieArray[i].split('=')[0];
+		value = cookieArray[i].split('=')[1];
+		
+		if(name == "fahrenheit")
+		{
+			useFahrenheit = Number(value) == 1;
+		}
+		}	
+	}
 }

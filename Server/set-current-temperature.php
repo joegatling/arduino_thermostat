@@ -20,7 +20,7 @@ if(isset($_GET['c']))
 }
 else if(isset($_GET['f']))
 {
-	$celsius = $_GET['f'] * 100/180 + 32;
+	$celsius = ($_GET['f'] - 32) * 5/9;
 }
 else
 {
