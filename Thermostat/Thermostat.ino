@@ -6,11 +6,12 @@
 #include <AutoPID.h>
 #include <ButtonKing.h>
 #include <EEPROM.h>
-#include "RemoteThermostatController.h"
 #include <Wire.h>
 #include <Adafruit_GFX.h>
+
 #include "Adafruit_LEDBackpack.h"
 #include "ThermostatFont.h"
+#include "RemoteThermostatController.h"
 
 
 #include "Configuration.h"
@@ -25,7 +26,8 @@
 
 #define TEMPERATURE_POLL_INTERVAL   5000
 // 960000 = 16 minutes
-#define HEATER_RELAY_WINDOW_SIZE    960000  
+// 1920000 = 32 minutes
+#define HEATER_RELAY_WINDOW_SIZE    1920000  
 #define MIN_TOGGLE_TIME             120000
 
 #define ABSOLUTE_MAX_TEMP 32.0f
@@ -63,9 +65,9 @@ OneWire oneWire(ONE_WIRE_PIN);
 DallasTemperature sensors(&oneWire);
 
 double target, current;
-bool relayState;
-bool heaterPinState;
-AutoPIDRelay pid(&current, &target, &relayState, HEATER_RELAY_WINDOW_SIZE, KP, KI, KD);
+bool pidState;
+bool heaterState;
+AutoPIDRelay pid(&current, &target, &pidState, HEATER_RELAY_WINDOW_SIZE, KP, KI, KD);
 
 ButtonKing upButton(UP_BUTTON_PIN, false);
 ButtonKing downButton(DOWN_BUTTON_PIN, false);
@@ -111,7 +113,8 @@ void setup()
   matrix.writeDisplay();
 
   pinMode(HEATER_PIN, OUTPUT);
-  heaterPinState = false;
+  digitalWrite(HEATER_PIN, LOW);
+  heaterState = false;
 
 
   upButton.setLongClickStart(upButtonLongPressStart);
@@ -320,10 +323,9 @@ void drawPulseState()
   int totalWidth = 16;
   int blinking = (int)(millis() / 500) % 2;
 
+  float t = (float)(millis() % HEATER_RELAY_WINDOW_SIZE) / HEATER_RELAY_WINDOW_SIZE;
+  //t /= HEATER_RELAY_WINDOW_SIZE;
 
-  float t = (millis() - pid.getLastPulseTime());
-  t /= HEATER_RELAY_WINDOW_SIZE;
-  //
   //  USE_SERIAL.print(F("Millis: "));
   //  USE_SERIAL.print(millis());
   //  USE_SERIAL.print(F("  Last Time: "));
@@ -341,7 +343,7 @@ void drawPulseState()
     matrix.drawLine(pid.getPulseValue() * totalWidth, 7, totalWidth, 7, LED_ON);
   }
 
-  matrix.drawPixel(t * totalWidth, heaterPinState ? 6 : 7, blinking);
+  matrix.drawPixel(t * totalWidth, heaterState ? 6 : 7, blinking);
   //matrix.drawLine(0,7,(int)((pid.getPulseValue() / HEATER_RELAY_WINDOW_SIZE) * totalWidth),7,1);
 
 }
@@ -372,17 +374,19 @@ void adjustTargetTemp(int delta)
 {
   if (thermostatController.GetPowerState())
   {
-    if (useFahrenheit)
-    {
-      float f = (thermostatController.GetTargetTemperature() * 9 / 5) + 32;
-      f += delta;
-      thermostatController.SetTargetTemperature((f - 32) * 5 / 9);
-    }
-    else
-    {
-      int temp = min(ABSOLUTE_MAX_TEMP, max(ABSOLUTE_MIN_TEMP, thermostatController.GetTargetTemperature() + delta));
-      thermostatController.SetTargetTemperature(temp);
-
+    if(millis() < setTempTime + TARGET_TEMP_DURATION)
+    {    
+      if (useFahrenheit)
+      {
+        float f = (thermostatController.GetTargetTemperature() * 9 / 5) + 32;
+        f += delta;
+        thermostatController.SetTargetTemperature((f - 32) * 5 / 9);
+      }
+      else
+      {
+        int temp = min(ABSOLUTE_MAX_TEMP, max(ABSOLUTE_MIN_TEMP, thermostatController.GetTargetTemperature() + delta));
+        thermostatController.SetTargetTemperature(temp);  
+      }
     }
   }
 
@@ -399,16 +403,23 @@ void toggleThermostatPower()
 
 void toggleHeater(bool isOn)
 {
-  if (isOn)
+  if(isOn != heaterState)
   {
-    heaterPinState = true;
-    digitalWrite(HEATER_PIN, HIGH);
+    lastToggleTime = millis();
+
+    if (isOn)
+    {
+      heaterState = true;
+      digitalWrite(HEATER_PIN, HIGH);
+    }
+    else
+    {
+      heaterState = false;
+      digitalWrite(HEATER_PIN, LOW);
+    }
   }
-  else
-  {
-    heaterPinState = false;
-    digitalWrite(HEATER_PIN, LOW);
-  }
+  
+  
 }
 
 void updateHeaterController()
@@ -430,11 +441,13 @@ void updateHeaterController()
 
   if (millis() - lastToggleTime > MIN_TOGGLE_TIME)
   {
-    if (relayState != heaterPinState)
-    {
-      lastToggleTime = millis();
-    }
-
-    toggleHeater(relayState);
+    toggleHeater(pidState);  
   }
+}
+
+unsigned long getTimeLeftInRelayPulse()
+{
+  unsigned long timeInCurrentWindow = millis() % HEATER_RELAY_WINDOW_SIZE;
+  unsigned long pulseTime = pid.getPulseValue() * HEATER_RELAY_WINDOW_SIZE;
+  return pulseTime - timeInCurrentWindow;
 }

@@ -20,6 +20,7 @@ if ($mysqli->connect_error) {
 $currentTemp = 0;
 $query = "SELECT timestamp, celsius FROM $table ORDER BY timestamp DESC LIMIT 1;";
 
+
 $data = array();
 
 if($result = $mysqli->query($query))
