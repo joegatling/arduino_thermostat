@@ -4,7 +4,7 @@
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
 #include <AutoPID.h>
-#include <ButtonKing.h>
+//#include <ButtonKing.h>
 #include <EEPROM.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -12,6 +12,7 @@
 #include "Adafruit_LEDBackpack.h"
 #include "ThermostatFont.h"
 #include "RemoteThermostatController.h"
+#include "SimpleButton.h"
 
 
 #include "Configuration.h"
@@ -69,17 +70,18 @@ bool pidState;
 bool heaterState;
 AutoPIDRelay pid(&current, &target, &pidState, HEATER_RELAY_WINDOW_SIZE, KP, KI, KD);
 
-ButtonKing upButton(UP_BUTTON_PIN, false);
-ButtonKing downButton(DOWN_BUTTON_PIN, false);
-ButtonKing powerButton(POWER_BUTTON_PIN, false);
+//ButtonKing upButton(UP_BUTTON_PIN, false);
+//ButtonKing downButton(DOWN_BUTTON_PIN, false);
+//ButtonKing powerButton(POWER_BUTTON_PIN, false);
+
+SimpleButton upButton(UP_BUTTON_PIN);
+SimpleButton downButton(DOWN_BUTTON_PIN);
+SimpleButton powerButton(POWER_BUTTON_PIN);
+
 
 bool useFahrenheit = false;
-bool didToggleFahrenheit = false;
 
 bool showGraph = false;
-bool didToggleGraph = false;
-
-bool didToggleLocalMode = false;
 
 Adafruit_8x16matrix matrix = Adafruit_8x16matrix();
 
@@ -91,8 +93,6 @@ bool didSetThermostatPowerOn = false;
 
 bool oldPowerState = false;
 float oldTemperature = 0;
-
-
 
 void setup()
 {
@@ -116,28 +116,26 @@ void setup()
   digitalWrite(HEATER_PIN, LOW);
   heaterState = false;
 
-
-  upButton.setLongClickStart(upButtonLongPressStart);
-  upButton.setLongClickStop(upButtonLongPressStop);
-  upButton.setClick([]()
+  upButton.SetClickCallback([]()
   {
     adjustTargetTemp(1);
   });
-
-  downButton.setLongClickStart(downButtonLongPressStart);
-  downButton.setLongClickStop(downButtonLongPressStop);
-  downButton.setClick([]()
+  upButton.SetBeginPressCallback(wakeUp);
+  upButton.SetHoldCallback(upButtonLongPress);
+  
+  downButton.SetClickCallback([]()
   {
     adjustTargetTemp(-1);
   });
+  downButton.SetBeginPressCallback(wakeUp); 
+  downButton.SetHoldCallback(downButtonLongPress);
 
-
-  powerButton.setLongClickStart(powerButtonLongPressStart);
-  powerButton.setLongClickStop(powerButtonLongPressStop);
-  powerButton.setClick([]()
+  powerButton.SetClickCallback([]()
   {
     toggleThermostatPower();
   });
+  powerButton.SetBeginPressCallback(wakeUp);   
+  powerButton.SetHoldCallback(powerButtonLongPress);
 
   sensors.requestTemperatures(); // Get initial temperature reading
   sensors.setWaitForConversion(false);
@@ -157,9 +155,9 @@ void setup()
 
 void loop()
 {
-  upButton.isClick();
-  downButton.isClick();
-  powerButton.isClick();
+  upButton.Update();
+  downButton.Update();
+  powerButton.Update();
 
   updateTemperature();
   updateHeaterController();
@@ -184,59 +182,31 @@ void loop()
   updateLED();
 }
 
-void upButtonLongPressStart()
+void upButtonLongPress()
 {
-  if (!didToggleFahrenheit)
-  {
-    useFahrenheit = !useFahrenheit;
-    didToggleFahrenheit = true;
+  useFahrenheit = !useFahrenheit;
 
-    EEPROM.write(FARENHEIT_EEPROM_ADDR, (byte)useFahrenheit);
-    EEPROM.commit();
+  EEPROM.write(FARENHEIT_EEPROM_ADDR, (byte)useFahrenheit);
+  EEPROM.commit();
 
-    USE_SERIAL.print("Use Farenheit: ");
-    USE_SERIAL.println(useFahrenheit);
-  }
+  USE_SERIAL.print("Use Farenheit: ");
+  USE_SERIAL.println(useFahrenheit);
 }
 
-void upButtonLongPressStop()
+void downButtonLongPress()
 {
-  didToggleFahrenheit = false;
+  showGraph = !showGraph;
+
+  EEPROM.write(GRAPH_EEPROM_ADDR, (byte)showGraph);
+  EEPROM.commit();    
 }
 
-void downButtonLongPressStart()
+void powerButtonLongPress()
 {
-  if (!didToggleGraph)
-  {
-    showGraph = !showGraph;
-    didToggleGraph = true;
+  thermostatController.SetLocalMode(!thermostatController.IsInLocalMode());
 
-    EEPROM.write(GRAPH_EEPROM_ADDR, (byte)showGraph);
-    EEPROM.commit();    
-  }
-}
-
-void downButtonLongPressStop()
-{
-  didToggleGraph = false;
-}
-
-
-void powerButtonLongPressStart()
-{
-  if (!didToggleLocalMode)
-  {
-    thermostatController.SetLocalMode(!thermostatController.IsInLocalMode());
-    didToggleLocalMode = true;
-
-    EEPROM.write(LOCAL_EEPROM_ADDR, (byte)thermostatController.IsInLocalMode());
-    EEPROM.commit();    
-  }
-}
-
-void powerButtonLongPressStop()
-{
-  didToggleLocalMode = false;
+  EEPROM.write(LOCAL_EEPROM_ADDR, (byte)thermostatController.IsInLocalMode());
+  EEPROM.commit();    
 }
 
 void updateLED()
@@ -266,6 +236,7 @@ void updateLED()
       }
       else
       {
+        didSetThermostatPowerOn = false;
         if (useFahrenheit)
         {
           matrix.print(int(round((thermostatController.GetTargetTemperature() * 9 / 5) + 32)));
@@ -275,7 +246,7 @@ void updateLED()
         {
           matrix.print(int(round(thermostatController.GetTargetTemperature())));
           matrix.print(F("c"));
-        }
+        }       
       }
     }
 
@@ -283,14 +254,14 @@ void updateLED()
   else
   {
     matrix.setBrightness(CURRENT_TEMP_BRIGHTNESS);
-    didSetThermostatPowerOn = false;
-
+    
     if (temperatureError)
     {
       matrix.print(F("ERR"));
     }
     else
     {
+      
       if (useFahrenheit)
       {
         matrix.print(int(round((thermostatController.GetCurrentTemperature() * 9 / 5) + 32)));
@@ -304,8 +275,9 @@ void updateLED()
 
       if(thermostatController.IsInLocalMode())
       {
-        matrix.print(F("!!!"));
+        matrix.print(F("L"));
       }
+
     }
 
     if (showGraph && thermostatController.GetPowerState())
@@ -388,9 +360,29 @@ void adjustTargetTemp(int delta)
         thermostatController.SetTargetTemperature(temp);  
       }
     }
+    
+    didSetThermostatPowerOn = false;
   }
+  else
+  {
+      if (useFahrenheit)
+      {
+        float f = (thermostatController.GetCurrentTemperature() * 9 / 5) + 32;
+        f += delta;
+        thermostatController.SetTargetTemperature((f - 32) * 5 / 9);
+      }
+      else
+      {
+        int temp = min(ABSOLUTE_MAX_TEMP, max(ABSOLUTE_MIN_TEMP, thermostatController.GetCurrentTemperature() + delta));
+        thermostatController.SetTargetTemperature(temp);  
+      }
+    
+      thermostatController.SetPowerState(true);
+      didSetThermostatPowerOn = true;
+  }  
 
   setTempTime = millis();
+  
 }
 
 void toggleThermostatPower()
@@ -399,6 +391,10 @@ void toggleThermostatPower()
   didSetThermostatPowerOn = thermostatController.GetPowerState();
 
   setTempTime = millis();
+}
+
+void wakeUp()
+{
 }
 
 void toggleHeater(bool isOn)
