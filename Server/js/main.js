@@ -9,7 +9,7 @@ var lastTargetTemperatureTimestamp = 0;
 var isThermostatOn = true;
 var useFahrenheit = true;
 
-var maxTargetTemperatureCelsius = 28.0;
+var maxTargetTemperatureCelsius = 30.0;
 var minTargetTemperatureCelsius = 10.0;
 
 var temperatureSendTimeout = 1000.0;
@@ -55,6 +55,9 @@ function UpdateThermostatData()
 
 			lastTargetTemperatureTimestamp = jsonData.target.timestamp;
 			isThermostatOn = jsonData.target.power > 0;
+
+			maxTargetTemperatureCelsius = jsonData.thermostat.max_temp;
+			minTargetTemperatureCelsius = jsonData.thermostat.min_temp;
 
 			$("#loading").hide();
 			$(".showAfterLoading").show();					

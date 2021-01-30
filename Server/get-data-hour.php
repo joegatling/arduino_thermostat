@@ -23,16 +23,21 @@ if ($mysqli->connect_error) {
 $thermostatInfo = GetThermostatInfo($thermostat);
 $timezone = $thermostatInfo['time_zone'];
 $query = "SET time_zone = '$timezone';";
-
-$mysqli->query($query);
-
-$query = "SELECT timestamp as t, date(timestamp) as date, hour(timestamp) as hour, (floor(minute(timestamp)/5)*5) as minute, avg(celsius) as celsius,\n"
+$query .= "SELECT timestamp as t, date(timestamp) as date, hour(timestamp) as hour, (floor(minute(timestamp)/1)*1) as minute, \n"
+. "(timestamp - (SELECT max(timestamp) from temperature_set where thermostat = '$thermostat' limit 1) as target) as offset, avg(celsius) as celsius,\n"
 	. "(SELECT celsius from $tableTargetTemperature where timestamp < t order by timestamp desc limit 1) as target\n"
     . "from $tableCurrentTemperature\n"
-    . "where timestamp > (now() - interval 24 hour) and thermostat = '$thermostat'\n"
-    . "group by date, hour, minute;";
+    . "where timestamp > (now() - interval 1 hour) and thermostat = '$thermostat'\n"
+	. "group by date, hour, minute;";
+	
+
+// 	SELECT timestamp as t, date(timestamp) as date, hour(timestamp) as hour, (floor(minute(timestamp)/1)*1) as minute, avg(celsius) as celsius, (SELECT celsius from temperature_set where timestamp < t order by timestamp desc limit 1) as target, TIMESTAMPDIFF(MINUTE, now(), now()) as DIFF	
+// from temperature_read
+// where timestamp > (now() - interval 24 hour) and thermostat = 'beachwood'
+// group by date, hour, minute	
 
 $rows = array();
+
 
 if($result = $mysqli->query($query))
 {
@@ -41,20 +46,9 @@ if($result = $mysqli->query($query))
 		$newRow = array();
 		//$dateString = $row['date'] . " " . $row['hour'] . ":" .  $row['minute'];
 		$newRow['c'] = array();
-//		array_push($newRow['c'], array('v' => $row['date']  . "T" . str_pad($row['hour'], 2, "0", STR_PAD_LEFT) . ":" .  str_pad($row['minute'], 2, "0", STR_PAD_LEFT).$timezone));
-		$date = new DateTime($row['date'],new DateTimeZone($timezone));
-		$date->setTime($row['hour'], $row['minute']);
 
-		$year = $date->format('Y');
-		$month = $date->format('m')-1;
-		$day = $date->format('d');
-		$hour = $date->format('H');
-		$minute = $date->format('i');
 
-		//$textDate = $date->format(DateTimeInterface::RFC850);
-
-		//array_push($newRow['c'], array('v' => "Date('$textDate')"));
-		array_push($newRow['c'], array('v' => "Date($year,$month,$day,$hour,$minute)"));
+		array_push($newRow['c'], array('v' => $row['date']  . " " . str_pad($row['hour'], 2, "0", STR_PAD_LEFT) . ":" .  str_pad($row['minute'], 2, "0", STR_PAD_LEFT)));
 		$fahrenheit = strval(($row['celsius'] * 9) / 5 + 32);
 		array_push($newRow['c'], array('v' => $row['celsius'], 'f' => number_format($fahrenheit, 0) . "F / " .number_format($row['celsius'], 1) . "C"));
 		$fahrenheit = strval(($row['target'] * 9) / 5 + 32);
@@ -70,7 +64,7 @@ if($result = $mysqli->query($query))
 $cols = array();
 
 $dateCol = array();
-$dateCol['type'] = 'datetime';
+$dateCol['type'] = 'string';
 $dateCol['label'] = "Timestamp";
 
 $tempCol = array();

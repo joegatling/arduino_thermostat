@@ -58,9 +58,9 @@ if($result == "OK")
 
 	$privileges = GetPrivileges($api_key);
 
-	$thermostatInfo = GetThermostatInfo($thermostat);
-	$timestamp = new DateTime("now", new DateTimeZone($thermostatInfo['time_zone']));
-	$formattedTimestamp = $timestamp->format('Y-m-d H:i:s');
+	// $thermostatInfo = GetThermostatInfo($thermostat);
+	// $timestamp = new DateTime("now", new DateTimeZone($thermostatInfo['time_zone']));
+	// $formattedTimestamp = $timestamp->format('Y-m-d H:i:s');
 
 
 	if($privileges->CanWriteTarget())
@@ -72,7 +72,7 @@ if($result == "OK")
 		}		
 
 		$timestamp = time();
-		$query = "INSERT INTO $tableTargetTemperature (thermostat, user, celsius, power, timestamp) VALUES('$thermostat', '$user', $celsius, $isThermostatOn, '$formattedTimestamp')";
+		$query = "INSERT INTO $tableTargetTemperature (thermostat, user, celsius, power) VALUES('$thermostat', '$user', $celsius, $isThermostatOn)";
 		$mysqli->query($query);
 
 		$mysqli->close();

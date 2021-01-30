@@ -34,6 +34,12 @@ if ($mysqli->connect_error) {
 	die('Connect Error (' . $mysqli->connect_errno . ') ' . $mysqli->connect_error);
 }		
 
+$thermostatInfo = GetThermostatInfo($thermostat);
+$timezone = $thermostatInfo['time_zone'];
+
+$query = "SET time_zone = '$timezone';";	
+$mysqli->query($query);
+
 if($privileges->CanReadCurrent())
 {
 	$query = "SELECT timestamp, celsius FROM $tableCurrentTemperature WHERE thermostat = '$thermostat' ORDER BY timestamp DESC LIMIT 1;";

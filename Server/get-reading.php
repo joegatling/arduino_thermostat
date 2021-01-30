@@ -1,9 +1,5 @@
 <?php
-$dbUser = "nodemcu";
-$dbPass = "netxaX-zabtej-6qucmy";
-$dbUrl = "joegatling.powwebmysql.com";
-$dbName = "joegatling_thermostat";
-$table = "temperature_read";
+include_once 'common.php';
 
 $thermostat = "default";
 $celsius = 0;
@@ -23,8 +19,17 @@ if ($mysqli->connect_error) {
 	die('Connect Error (' . $mysqli->connect_errno . ') ' . $mysqli->connect_error);
 }		
 
+$thermostatInfo = GetThermostatInfo($thermostat);
+
+$timezone = $thermostatInfo['time_zone'];
+
+
+
 $currentTemp = 0;
-$query = "SELECT timestamp, celsius FROM $table ORDER BY timestamp DESC LIMIT 1;";
+
+$query = "SET time_zone = '$timezone';";	
+$query .= "SELECT timestamp, celsius FROM $tableCurrentTemperature ORDER BY timestamp DESC LIMIT 1;";
+
 if($result = $mysqli->query($query))
 {
 	while($row = $result->fetch_assoc())

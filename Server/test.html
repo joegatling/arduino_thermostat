@@ -1,73 +1,76 @@
-<!DOCTYPE html>
+<style>
+    html, body {
+      margin: 0; 
+      padding: 0; 
+      overflow: hidden
+    }
+    svg {
+      position: fixed;
+      top:0;
+      left:0;
+      height:100%;
+      width:100%;
+    }
 
+    #currentLine
+    {
+        stroke: black;
+        stroke-width: 1px;
+    }
 
-<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
-<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
-<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
-    <head>
-        <meta charset="utf-8">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-        <title>Temperature</title>
-        <meta name="description" content="Temperature Monitor">
-        <meta name="viewport" content="width=device-width">
+    #temperatureLine
+    {
+        stroke: black;
+        stroke-width: .1px;
+    }    
 
-        <link href="https://fonts.googleapis.com/css?family=Roboto:100,200,400&display=swap" rel="stylesheet">
-        
-        <link rel="stylesheet" href="css/normalize.min.css">
-        <link rel="stylesheet" href="css/main.css">
+    .boundsLine
+    {
+        stroke: black;
+        stroke-width: .1px;
+    }  
 
-        <script src="js/vendor/modernizr-2.6.2-respond-1.1.0.min.js"></script>
+    #temperatureCircle
+    {
+        stroke: black;
+        fill: white;
+    }
 
+    #temperatureGraph
+    {
+        fill: blue;
+        stroke-linejoin: round;
+        stroke: black;
+    }
 
-    </head>
-    <body>
-        <!--[if lt IE 7]>
-            <p class="chromeframe">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> or <a href="http://www.google.com/chromeframe/?redirect=true">activate Google Chrome Frame</a> to improve your experience.</p>
-        <![endif]-->
-        
-        <div id="container">
-		<div id="infoCard">	
-            <p id="loading">Loading...</p>
-            <p class="currentTemp showAfterLoading"><span id="currentTempValue">24</span>C</p>
-            <!-- <p class="currentTempAlt showAfterLoading"><span id="currentTempAltValue">75</span>F</p> -->
-        </div>
-        <div id="controls">
-	        <a class="decreaseTemp" href="#" alt="Decrease Temperature"><span>-</span></a>
-	        <a class="increaseTemp" href="#" alt="Increase Temperature"><span>+</span></a>
-        </div>
-        </div>
+    #temperatureValue
+    {
+        pointer-events:none;
+    }
+  </style>
+  <head>
+    <script src="js/chart.js"></script>
+  </head>
+  <svg viewBox="-60 -10 70 120" preserveAspectRatio="xMinYMid meet" onload="makeDraggable(evt)">
+    <rect x="0%" y="0%" width="100%" height="100%" fill="rgba(255,0,0,0.5)"></rect>
+    <polygon id="temperatureGraph" points="-60 50 0 50 0 -20 -60 20"></polygon>
 
-        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
-        <!-- <script>window.jQuery || document.write('<script src="js/vendor/jquery-1.10.1.min.js"><\/script>')</script> -->
+    <line class="boundsLine" x1="-200" y1="100" x2="200" y2="100"/>
+    <line class="boundsLine" x1="-200" y1="0" x2="200" y2="0"/>
+    
+    <line id="currentLine" x1="0" y1="200" x2="0" y2="-200"/>
+    <!-- <line id="temperatureLine" x1="0" y1="200" x2="1000" y2="200" stroke="black"/> -->
+    <ellipse class="draggable" id="temperatureCircle" cx="0" cy="0" rx="5" ry="5"></ellipse>
+    <!-- <text x="450" y="200" id="temperatureValue">78</text> -->
+    <!-- <rect x="0" y="0" width="100%" height="100%" fill="url(#grid)" />
+    
+    <path d="M 187.5,187.5 h 125 v 125 h -125 z" fill="rgba(0,0,0,0.5)"></path> -->
+    
+  </svg>
+  <script>
 
-
-
-        <script src="js/main.js"></script>
-        
-        <script>
-            $("#loading").show();
-            $(".showAfterLoading").hide();
-
-            
-            //TestUpdate();
-        	// UpdateReading();
-            // DrawGraph(1);
-            UpdateReading();
-        	
-            $(document).ready(function () 
-            { 
-
-    			setInterval(UpdateReading, 30000);
-			});        	
-        </script>
-
-        <script>
-            var _gaq=[['_setAccount','UA-XXXXX-X'],['_trackPageview']];
-            (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
-            g.src='//www.google-analytics.com/ga.js';
-            s.parentNode.insertBefore(g,s)}(document,'script'));
-        </script>
-    </body>
-</html>
-
+window.addEventListener("load", function() {
+    //SetupPointerEvents();
+    RedrawGraph();
+});
+  </script>

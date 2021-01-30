@@ -29,7 +29,7 @@ else
 
 if(isset($_GET['key']))
 {
-	$api_key = $_GET['key'];
+	$api_key = $_GET['key'];	
 }
 else
 {
@@ -45,9 +45,9 @@ if(isset($_GET['thermostat']))
 
 if($result == "OK")
 {
-	$thermostatInfo = GetThermostatInfo($thermostat);
-	$timestamp = new DateTime("now", new DateTimeZone($thermostatInfo['time_zone']));
-	$formattedTimestamp = $timestamp->format('Y-m-d H:i:s');
+	// $thermostatInfo = GetThermostatInfo($thermostat);
+	// $timestamp = new DateTime("now", new DateTimeZone($thermostatInfo['time_zone']));
+	// $formattedTimestamp = $timestamp->format('Y-m-d H:i:s');
 
 	$privileges = GetPrivileges($api_key);
 
@@ -55,7 +55,7 @@ if($result == "OK")
 	{
 		$mysqli = new mysqli($dbUrl, $dbUser, $dbPass, $dbName);
 
-		$query = "INSERT INTO $tableCurrentTemperature (thermostat, celsius, timestamp) VALUES('$thermostat', $celsius, '$formattedTimestamp')";
+		$query = "INSERT INTO $tableCurrentTemperature (thermostat, celsius) VALUES('$thermostat', $celsius)";
 
 		$mysqli->query($query);
 
