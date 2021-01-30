@@ -4,10 +4,10 @@
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
 #include <AutoPID.h>
-//#include <ButtonKing.h>
 #include <EEPROM.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
+#include <ArduinoOTA.h>
 
 #include "Adafruit_LEDBackpack.h"
 #include "ThermostatFont.h"
@@ -37,7 +37,7 @@
 #define MIN_VALID_TEMP    -50.0f
 
 #define KP 0.7
-#define KI 0 //0.05
+#define KI 0
 #define KD 0 //0.01
 
 #define HEATER_PIN        D0
@@ -58,6 +58,16 @@
 #define TARGET_TEMP_BRIGHTNESS 15
 #define TARGET_TEMP_DURATION 3000
 #define POWER_ON_MSG_DURATION 1000
+
+#define STATUS_MESSAGE_DURATION 6000
+#define STATUS_MESSAGE_SCROLL_DELAY 500
+#define STATUS_MESSAGE_SCROLL_STEP 100
+
+#define MESSAGE_WIFI F("WIFI?")
+#define MESSAGE_RECONNECTED F("CONNECTED")
+#define MESSAGE_TEMP_ERR F("TEMPERATURE READ ERROR")
+#define MESSAGE_LOCAL F("WIFI: OFF")
+#define MESSAGE_ONLINE F("WIFI: ON")
 
 unsigned long lastTemperatureUpdate = 0;
 RemoteThermostatController thermostatController(API_KEY, THERMOSTAT_NAME, false);
@@ -93,6 +103,14 @@ bool didSetThermostatPowerOn = false;
 
 bool oldPowerState = false;
 float oldTemperature = 0;
+
+bool isWifiConnected = false;
+
+unsigned long statusMessageTime = 0;
+String statusMessage;
+uint16_t statusMessageWidth, statusMessageHeight;
+
+
 
 void setup()
 {
@@ -140,6 +158,7 @@ void setup()
   sensors.requestTemperatures(); // Get initial temperature reading
   sensors.setWaitForConversion(false);
 
+  WiFi.hostname(F("Thermostat"));
   WiFi.begin(STASSID, STAPSK);
 
   while (WiFi.status() != WL_CONNECTED)
@@ -147,14 +166,65 @@ void setup()
     delay(500);
   }
 
+  isWifiConnected = true;
+
   EEPROM.begin(3);
   useFahrenheit = boolean(EEPROM.read(FARENHEIT_EEPROM_ADDR));  
   showGraph = boolean(EEPROM.read(GRAPH_EEPROM_ADDR));
   thermostatController.SetLocalMode(boolean(EEPROM.read(LOCAL_EEPROM_ADDR)));
+
+
+  ArduinoOTA.setHostname("Thermostat");
+  ArduinoOTA.setPassword("esp8266");
+
+//  ArduinoOTA.onStart([]() 
+//  {
+//  });
+  ArduinoOTA.onEnd([]() {
+    matrix.setFont(&Thermostat_Font);
+    matrix.setTextSize(1);
+    matrix.setTextWrap(false);  // we dont want text to wrap so it scrolls nicely
+    matrix.setTextColor(LED_ON);
+  //matrix.setRotation(3);
+
+    matrix.clear();
+    matrix.fillRect(0,0,16,8,LED_ON);
+  
+    matrix.writeDisplay();  
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) 
+  {
+    matrix.setFont(&Thermostat_Font);
+    matrix.setTextSize(1);
+    matrix.setTextWrap(false);  // we dont want text to wrap so it scrolls nicely
+    matrix.setTextColor(LED_ON);
+
+    matrix.clear();
+    int barWidth = ((float)progress/(float)total) * 16;
+    if(barWidth > 0)
+    {
+      matrix.fillRect(0,0,barWidth,8,LED_ON);
+    }
+  
+    matrix.writeDisplay();
+    
+    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+    else if (error == OTA_END_ERROR) Serial.println("End Failed");
+  });
+  ArduinoOTA.begin();
 }
 
 void loop()
 {
+  ArduinoOTA.handle();
+  
   upButton.Update();
   downButton.Update();
   powerButton.Update();
@@ -165,6 +235,11 @@ void loop()
   // wait for WiFi connection
   if (WiFi.status() == WL_CONNECTED)
   {
+    if(!isWifiConnected)
+    {
+      isWifiConnected = true;
+      showStatusMessage(MESSAGE_RECONNECTED);
+    }
 
     if (thermostatController.WasPowerSetRemotely())
     {
@@ -178,8 +253,27 @@ void loop()
 
     thermostatController.Update();
   }
+  else
+  {
+    if(isWifiConnected)
+    {
+      isWifiConnected = false;
+
+      showStatusMessage(MESSAGE_WIFI);
+    }
+  }
 
   updateLED();
+}
+
+void showStatusMessage(String message)
+{
+  statusMessage = message;
+  statusMessageTime = millis();
+
+  int16_t  x1, y1;
+
+  matrix.getTextBounds(statusMessage, 0, 0, &x1, &y1, &statusMessageWidth, &statusMessageHeight);
 }
 
 void upButtonLongPress()
@@ -205,6 +299,15 @@ void powerButtonLongPress()
 {
   thermostatController.SetLocalMode(!thermostatController.IsInLocalMode());
 
+  if(thermostatController.IsInLocalMode())
+  {
+    showStatusMessage(MESSAGE_LOCAL);
+  }
+  else
+  {
+    showStatusMessage(MESSAGE_ONLINE);
+  }
+
   EEPROM.write(LOCAL_EEPROM_ADDR, (byte)thermostatController.IsInLocalMode());
   EEPROM.commit();    
 }
@@ -218,50 +321,50 @@ void updateLED()
   //matrix.setRotation(3);
 
   matrix.clear();
-  matrix.setCursor(0, 4);
-
-  if (millis() < setTempTime + TARGET_TEMP_DURATION)
+  
+  if(shouldShowStatusMessage())
   {
     matrix.setBrightness(TARGET_TEMP_BRIGHTNESS);
-
-    if (thermostatController.GetPowerState() == false)
-    {
-      matrix.print(F("OFF"));
-    }
-    else
-    {
-      if (didSetThermostatPowerOn && millis() < setTempTime + POWER_ON_MSG_DURATION)
-      {
-        matrix.print(F("ON"));
-      }
-      else
-      {
-        didSetThermostatPowerOn = false;
-        if (useFahrenheit)
-        {
-          matrix.print(int(round((thermostatController.GetTargetTemperature() * 9 / 5) + 32)));
-          matrix.print(F("f"));
-        }
-        else
-        {
-          matrix.print(int(round(thermostatController.GetTargetTemperature())));
-          matrix.print(F("c"));
-        }       
-      }
-    }
-
+    drawStatusMessage();
   }
   else
   {
-    matrix.setBrightness(CURRENT_TEMP_BRIGHTNESS);
-    
-    if (temperatureError)
-    {
-      matrix.print(F("ERR"));
+    matrix.setCursor(0, 4);
+
+    if (millis() < setTempTime + TARGET_TEMP_DURATION)
+    {  
+      matrix.setBrightness(TARGET_TEMP_BRIGHTNESS);
+  
+      if (thermostatController.GetPowerState() == false)
+      {
+        matrix.print(F("OFF"));
+      }
+      else
+      {
+        if (didSetThermostatPowerOn && millis() < setTempTime + POWER_ON_MSG_DURATION)
+        {
+          matrix.print(F("ON"));
+        }
+        else
+        {
+          didSetThermostatPowerOn = false;
+          if (useFahrenheit)
+          {
+            matrix.print(int(round((thermostatController.GetTargetTemperature() * 9 / 5) + 32)));
+            matrix.print(F("f"));
+          }
+          else
+          {
+            matrix.print(int(round(thermostatController.GetTargetTemperature())));
+            matrix.print(F("c"));
+          }       
+        }
+      }
     }
     else
     {
-      
+      matrix.setBrightness(CURRENT_TEMP_BRIGHTNESS);
+
       if (useFahrenheit)
       {
         matrix.print(int(round((thermostatController.GetCurrentTemperature() * 9 / 5) + 32)));
@@ -271,13 +374,46 @@ void updateLED()
       {
         matrix.print(int(round(thermostatController.GetCurrentTemperature())));
         matrix.print(F("c"));
-      }
+      }      
+            
 
       if(thermostatController.IsInLocalMode())
       {
         matrix.print(F("L"));
       }
-
+      
+//      if(thermostatController.GetPowerState())
+//      {
+//        if (useFahrenheit)
+//        {
+//          matrix.print(int(round((thermostatController.GetTargetTemperature() * 9 / 5) + 32)));
+//          matrix.print(F("f"));
+//        }
+//        else
+//        {
+//          matrix.print(int(round(thermostatController.GetTargetTemperature())));
+//          matrix.print(F("c"));
+//        }          
+//      }
+//      else
+//      {
+//        if (useFahrenheit)
+//        {
+//          matrix.print(int(round((thermostatController.GetCurrentTemperature() * 9 / 5) + 32)));
+//          matrix.print(F("f"));
+//        }
+//        else
+//        {
+//          matrix.print(int(round(thermostatController.GetCurrentTemperature())));
+//          matrix.print(F("c"));
+//        }      
+//              
+//  
+//        if(thermostatController.IsInLocalMode())
+//        {
+//          matrix.print(F("L"));
+//        }
+//      }
     }
 
     if (showGraph && thermostatController.GetPowerState())
@@ -288,6 +424,44 @@ void updateLED()
 
   matrix.writeDisplay();
 
+}
+
+unsigned long getStatusMessageTime()
+{
+  return millis() - statusMessageTime;
+}
+
+bool shouldShowStatusMessage()
+{
+  if(statusMessageTime == 0)
+  {
+    return false;
+  }
+  else if(statusMessageWidth > 16)
+  {
+    return getStatusMessageTime() < (STATUS_MESSAGE_SCROLL_DELAY * 2 + statusMessageWidth * STATUS_MESSAGE_SCROLL_STEP);
+  }
+  else
+  {
+    return getStatusMessageTime() < STATUS_MESSAGE_DURATION;
+  }
+    
+}
+
+void drawStatusMessage()
+{
+  int xOffset = 0;
+  
+  if(statusMessageWidth > 16)
+  {
+    if(getStatusMessageTime() > STATUS_MESSAGE_SCROLL_DELAY)
+    {
+      xOffset = max(-statusMessageWidth+16,-(int)(getStatusMessageTime() / STATUS_MESSAGE_SCROLL_STEP));
+    } 
+  }
+  
+  matrix.setCursor(xOffset, 4);
+  matrix.print(statusMessage);
 }
 
 void drawPulseState()
@@ -334,7 +508,12 @@ void updateTemperature()
     }
     else
     {
-      temperatureError = true;
+      if(temperatureError == false)
+      {
+        temperatureError = true;
+        showStatusMessage(MESSAGE_TEMP_ERR);
+      }
+      
     }
 
     lastTemperatureUpdate = millis();

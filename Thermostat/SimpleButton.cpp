@@ -1,7 +1,7 @@
 #include "SimpleButton.h"
 
 #define DEBOUNCE_TIME   20
-#define HOLD_TIME  500
+#define HOLD_TIME  1200
 
 SimpleButton::SimpleButton(int pin)
 {
