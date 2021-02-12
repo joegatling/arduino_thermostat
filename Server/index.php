@@ -23,7 +23,7 @@ if(isset($_GET['zone']))
         <link rel="stylesheet" href="css/normalize.min.css">
         <link rel="stylesheet" href="css/main.css">
 
-        <link href="https://fonts.googleapis.com/css?family=Roboto:100,200,400&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css?family=Roboto:100,200,400,900&display=swap" rel="stylesheet">
 
         <script src="js/vendor/modernizr-2.6.2-respond-1.1.0.min.js"></script>
     </head>
@@ -33,24 +33,27 @@ if(isset($_GET['zone']))
         <![endif]-->
         
         <div id="container">
-		<div id="infoCard">	
-            <p id="loading">Loading...</p>
-            <p class="heaterOff showAfterLoading" id="heaterOff">OFF</p>
-            <p class="setTemp showAfterLoading" id="setTemp"><span id="setTempValue">24</span><span id="setTempSymbol">C</span></p>
-            <p class="currentTemp showAfterLoading"><span id="currentTempValue">24</span><span id="currentTempSymbol">C</span></p>
-            <p class="currentTimestamp showAfterLoading" id="currentTimestamp">Updated moments ago</p>
-            <p class="formatToggle showAfterLoading" id="temperatureFormat">
-                <a id="celsiusToggle" href="">Use Celsius</a>
-                <a id="fahrenheitToggle" href="">Use Fahrenheit</a>
-            </p>
-            <!-- <p class="currentTempAlt showAfterLoading"><span id="currentTempAltValue">75</span>F</p> -->
-        </div>
-        <div id="controls">
-            <a id="togglePower" class="controlButton" href="#" alt="Power"><span>Power</span></a>
-	        <a id="decreaseTemp" class="controlButton" href="#" alt="Decrease Temperature"><span>-</span></a>
-	        <a id="increaseTemp" class="controlButton" href="#" alt="Increase Temperature"><span>+</span></a>
-        </div>
-
+            <div id="square">
+                <div id="content">
+                    <div id="infoCard">                        
+                        <p id="loading">Loading...</p>
+                        <p class="heaterOff showAfterLoading" id="heaterOff">OFF</p>
+                        <p class="setTemp showAfterLoading" id="setTemp"><span id="setTempValue">24</span><span id="setTempSymbol">C</span></p>
+                        <p class="currentTemp showAfterLoading"><span id="currentTempValue">24</span><span id="currentTempSymbol">C</span></p>
+                        <!-- <p class="currentTempAlt showAfterLoading"><span id="currentTempAltValue">75</span>F</p> -->
+                    </div>
+                    <a id="togglePower" class="controlButton" href="#" alt="Power"><span>Power</span></a>
+                    <a id="decreaseTemp" class="controlButton" href="#" alt="Decrease Temperature"><span>-</span></a>
+                    <a id="increaseTemp" class="controlButton" href="#" alt="Increase Temperature"><span>+</span></a>
+                    <div id="optionsCard">
+                        <p class="currentTimestamp showAfterLoading" id="currentTimestamp">Updated moments ago</p>
+                        <p class="formatToggle showAfterLoading" id="temperatureFormat">
+                            <a id="celsiusToggle" href="">Use Celsius</a>
+                            <a id="fahrenheitToggle" href="">Use Fahrenheit</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>

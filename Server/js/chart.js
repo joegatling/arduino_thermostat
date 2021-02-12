@@ -1,14 +1,42 @@
+var thermostat = "beachwood";
+var apiKey = "fc90b5ba-541b-43a6-a7c0-4c45bf14526d";
+
 function RedrawGraph()
 {
-    var graphData = "";
-    for(var i = 0; i <= 450; i += 10)
-    {
-        graphData += i + "," + (200 - Math.random()*50) + " ";        
-    }
-    graphData += "450,1000 0,1000";
 
-    var graphElement = document.getElementById("temperatureGraph");
-    graphElement.setAttribute("points", graphData);
+    $.getJSON('get-data-hour.php', {key: apiKey, thermostat: thermostat}, function(jsonData) 
+    {		
+        var xDivider = 30;			
+        
+        var maxTargetTemperatureCelsius = 30.0;
+        var minTargetTemperatureCelsius = 20.0;
+        
+        var graphData = "";
+        for(var i = 0; i < jsonData.length; i++)
+        {
+            var temp = (1 - (jsonData[i].celsius - minTargetTemperatureCelsius) / (maxTargetTemperatureCelsius - minTargetTemperatureCelsius)) * 100;
+            graphData += (jsonData[i].offset/xDivider) + "," + temp + " ";        
+        }
+        graphData += "0,1000 " + (jsonData[0].offset/xDivider) + ",1000";
+        
+        var graphElement = document.getElementById("temperatureGraph");
+        graphElement.setAttribute("points", graphData);
+
+        // var animationElement = document.getElementById("graphAnimation");
+
+        // if(animationElement == null )
+        // {
+        //     animationElement = document.createElement("animate");
+        //     graphElement.appendChild(animationElement);
+        //     animationElement.id = "graphAnimation";
+        // }
+
+        // animationElement.setAttribute("attributeName", "points");
+        // animationElement.setAttribute("dur", "500ms");
+        // animationElement.setAttribute("to", graphData);
+        // animationElement.beginElement();
+        
+    }); 
 }
 
 var selectedElement = false;

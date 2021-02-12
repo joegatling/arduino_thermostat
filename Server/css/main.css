@@ -12,9 +12,18 @@ textarea {
 
 body {
     font-size: 1em;
-    line-height: 1.4;
     min-height: 100%;
+    background: #222;
 }
+
+html, body 
+{
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+  
 
 ::-moz-selection {
     background: #b3d4fc;
@@ -63,96 +72,154 @@ textarea {
 
 #container
 {
-    display: grid;
-    grid-template-columns: 300px;
-    grid-template-rows: 400px 64px;
+    
 
-    grid-column-gap: 8px;
-    grid-row-gap: 8px;        
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-    justify-items: stretch;
-    align-items: stretch;
-    place-content: center;
-    align-content: stretch;
-
-    width: 100vw;
-    height: calc(100vh - 20px);
 
     padding: 10px 0;   
 }
 
+#square 
+{
+    position: relative;
+    width: 80vmin;
+    height: 80vmin;
+    border: solid #ffd600 2vmin;
+    background: #d18e00;
+    box-sizing: border-box;
+    border-radius: 8%;
+  }
+  
+#square:after 
+{
+    content: "";
+    display: block;
+    padding-bottom: 100%;
+}
+
+#content 
+{
+    position: absolute;
+    width: 100%;
+    height: 100%;
+
+    display: grid;
+    grid-template-columns: 8% 60% auto 18% 8%;
+    grid-template-rows: 8% 30% auto 18% 18% 18% 8%;
+
+    /* grid-column-gap: 8px;
+    grid-row-gap: 8px;     */
+}
+  
+  
+
 #infoCard
 {
-    grid-column-start: 1;
-    grid-column-end: 2;
-    grid-row-start: 1;
-    grid-row-end: 2;     
+    grid-column-start: 2;
+    grid-column-end: 3;
+    grid-row-start: 2;
+    grid-row-end: 3;     
     
     font-family: 'Roboto', sans-serif;
+
+    /* background: #5d491f; */
+
+    padding: 0 2vmin;
 }
+
+#optionsCard
+{
+    grid-column: 2;
+    grid-row: 7;
+    
+}
+
 
 #controls
 {
-    grid-column-start: 1;
-    grid-column-end: 2;
-    grid-row-start: 2;
-    grid-row-end: 3;
+    grid-column-start: 4;
+    grid-column-end: 5;
+    grid-row-start: 3;
+    grid-row-end: 4;
 
     font-family: 'Roboto', sans-serif;
 }
 
 .currentTemp
 {
-	font-size: 24px;
+	font-size: 18px;
 	margin: 0;
     padding: 0;
-    text-align: center;
-    font-weight: 200;
+    text-align: left;
+    color: #000000;
 }
 
 .setTemp
 {
-	font-size: 32px;
+	font-size: 8vmin;
 	margin: 0;
 	padding: 0;
-    text-align: center;
-    font-weight: 200;
+    text-align: left;
+    color: #000000;
 }
 
 .heaterOff
 {
-	font-size: 120px;
+	font-size: 18vmin;
 	margin: 0;
 	padding: 0;
-    text-align: center;
-    font-weight: 100;
+    text-align: left;
+    color: #000000;
 }
 
 .dateInfo
 {
     text-align: center;
-
+    display: none;
 }
 
 #currentTempValue
 {
-    font-size: 32px;
-    font-weight: 200;
+    font-size: 15vmin;
+    font-weight: 900;
+    display: none;
 }
 
+#currentTempSymbol
+{
+    display: none;
+}
 
 
 #setTempValue
 {
-    font-size: 160px;
-    font-weight: 100;
+    font-size: 15vmin;
+    font-weight: 900;
 }
 
 .currentTimestamp, .formatToggle
 {
-    font-size: 10px;
+    font-size: 2vmin;
     font-weight: 400;
-    text-align: center;
+    text-align: left;
+    padding: 0;
+    margin: 0;
+    color: #5d491f;
+}
+
+#optionsCard a, #optionsCard a:visited
+{
+    color: #ffd600;
+}
+
+#optionsCard a, #optionsCard a:hover
+{
+    color: #ffae00;
 }
 
 #currentTimestamp
@@ -192,7 +259,7 @@ textarea {
     border-radius: 16px;
 } 
 
-#controls a > span
+.controlButton span
 {
     display: none;
 }
@@ -203,6 +270,8 @@ textarea {
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
+    grid-column: 4;
+    grid-row: 4;
     
 }
 
@@ -212,7 +281,10 @@ textarea {
     background-image: url("../img/controls_down.png");
     background-size: contain;
     background-repeat: no-repeat;
-    background-position: center;    
+    background-position: center;   
+    grid-column: 4;
+    grid-row: 5;
+
 }
 
 #togglePower
@@ -221,6 +293,8 @@ textarea {
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;    
+    grid-column: 4;
+    grid-row: 6;
 }
 
 #controls a:hover

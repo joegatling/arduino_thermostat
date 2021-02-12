@@ -15,7 +15,7 @@
     #currentLine
     {
         stroke: black;
-        stroke-width: 1px;
+        stroke-width: .1px;
     }
 
     #temperatureLine
@@ -38,9 +38,10 @@
 
     #temperatureGraph
     {
-        fill: blue;
+        fill: rgb(0, 174, 255);
         stroke-linejoin: round;
-        stroke: black;
+        stroke: rgb(2, 119, 173);;
+        stroke-width: .1px;
     }
 
     #temperatureValue
@@ -50,10 +51,17 @@
   </style>
   <head>
     <script src="js/chart.js"></script>
+    <script src="js/main.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script>window.jQuery || document.write('<script src="js/vendor/jquery-1.10.1.min.js"><\/script>')</script>
+
   </head>
-  <svg viewBox="-60 -10 70 120" preserveAspectRatio="xMinYMid meet" onload="makeDraggable(evt)">
-    <rect x="0%" y="0%" width="100%" height="100%" fill="rgba(255,0,0,0.5)"></rect>
-    <polygon id="temperatureGraph" points="-60 50 0 50 0 -20 -60 20"></polygon>
+  <svg viewBox="-100 -10 110 120" preserveAspectRatio="xMinYMid meet" onload="makeDraggable(evt)">
+    <!-- <rect x="0%" y="0%" width="100%" height="100%" fill="rgba(255,0,0,0.5)"></rect> -->
+    <polygon id="temperatureGraph" points="-100 100 0 100 0 1000 -100 1000">
+
+      
+    </polygon>
 
     <line class="boundsLine" x1="-200" y1="100" x2="200" y2="100"/>
     <line class="boundsLine" x1="-200" y1="0" x2="200" y2="0"/>
@@ -73,4 +81,6 @@ window.addEventListener("load", function() {
     //SetupPointerEvents();
     RedrawGraph();
 });
+
+window.setInterval(function() { RedrawGraph(); }, 3000);
   </script>
