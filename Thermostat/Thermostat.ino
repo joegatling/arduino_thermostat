@@ -326,8 +326,6 @@ void updateLED()
   }
   else
   {
-    matrix.setCursor(0, 4);
-
     if (millis() < setTempTime + TARGET_TEMP_DURATION)
     {  
       matrix.setBrightness(TARGET_TEMP_BRIGHTNESS);
@@ -357,6 +355,18 @@ void updateLED()
           }       
         }
       }
+
+      int x = 1;
+      int y = 5;
+      int16_t  x1, y1;
+      uint16_t w, h;
+      
+      matrix.getTextBounds(str, x, y, &x1, &y1, &w, &h);
+  
+      matrix.setCursor(x, y);
+      matrix.fillRect(x1-1,y1-1,w+2,h+2,LED_ON);
+      matrix.setTextColor(LED_OFF);
+      matrix.print(str);         
     }
     else
     {
@@ -384,9 +394,15 @@ void updateLED()
           sprintf(str, "%dc", int(round(thermostatController.GetCurrentTemperature())));
         }               
       }
+
+      int x = 1;
+      int y = 5;
+      matrix.setCursor(x, y);
+      matrix.setTextColor(LED_ON);
+      matrix.print(str);      
     }
 
-    matrix.print(str);
+
 
     if (showGraph && thermostatController.GetPowerState())
     {
