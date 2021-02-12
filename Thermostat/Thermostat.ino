@@ -14,6 +14,7 @@
 #include "RemoteThermostatController.h"
 #include "SimpleButton.h"
 
+#include <stdio.h>
 
 #include "Configuration.h"
 /*
@@ -110,7 +111,7 @@ unsigned long statusMessageTime = 0;
 String statusMessage;
 uint16_t statusMessageWidth, statusMessageHeight;
 
-
+char str[8];
 
 void setup()
 {
@@ -177,15 +178,11 @@ void setup()
   ArduinoOTA.setHostname("Thermostat");
   ArduinoOTA.setPassword("esp8266");
 
-//  ArduinoOTA.onStart([]() 
-//  {
-//  });
   ArduinoOTA.onEnd([]() {
     matrix.setFont(&Thermostat_Font);
     matrix.setTextSize(1);
     matrix.setTextWrap(false);  // we dont want text to wrap so it scrolls nicely
     matrix.setTextColor(LED_ON);
-  //matrix.setRotation(3);
 
     matrix.clear();
     matrix.fillRect(0,0,16,8,LED_ON);
@@ -337,26 +334,26 @@ void updateLED()
   
       if (thermostatController.GetPowerState() == false)
       {
-        matrix.print(F("OFF"));
+        sprintf(str, "OFF");
+        //matrix.print(str);
       }
       else
       {
         if (didSetThermostatPowerOn && millis() < setTempTime + POWER_ON_MSG_DURATION)
         {
-          matrix.print(F("ON"));
+          sprintf(str, "ON");
+          //matrix.print(F("ON"));
         }
         else
         {
           didSetThermostatPowerOn = false;
           if (useFahrenheit)
           {
-            matrix.print(int(round((thermostatController.GetTargetTemperature() * 9 / 5) + 32)));
-            matrix.print(F("f"));
+            sprintf(str, "%df", int(round((thermostatController.GetTargetTemperature() * 9 / 5) + 32)));
           }
           else
           {
-            matrix.print(int(round(thermostatController.GetTargetTemperature())));
-            matrix.print(F("c"));
+            sprintf(str, "%dc", int(round(thermostatController.GetTargetTemperature())));
           }       
         }
       }
@@ -365,56 +362,31 @@ void updateLED()
     {
       matrix.setBrightness(CURRENT_TEMP_BRIGHTNESS);
 
-      if (useFahrenheit)
+      if(thermostatController.IsInLocalMode())
       {
-        matrix.print(int(round((thermostatController.GetCurrentTemperature() * 9 / 5) + 32)));
-        matrix.print(F("f"));
+        if (useFahrenheit)
+        {
+          sprintf(str, "%dfL", int(round((thermostatController.GetCurrentTemperature() * 9 / 5) + 32)));
+        }
+        else
+        {
+          sprintf(str, "%dcL", int(round(thermostatController.GetCurrentTemperature())));
+        }      
       }
       else
       {
-        matrix.print(int(round(thermostatController.GetCurrentTemperature())));
-        matrix.print(F("c"));
-      }      
-            
-
-      if(thermostatController.IsInLocalMode())
-      {
-        matrix.print(F("L"));
+        if (useFahrenheit)
+        {
+          sprintf(str, "%df", int(round((thermostatController.GetCurrentTemperature() * 9 / 5) + 32)));
+        }
+        else
+        {
+          sprintf(str, "%dc", int(round(thermostatController.GetCurrentTemperature())));
+        }               
       }
-      
-//      if(thermostatController.GetPowerState())
-//      {
-//        if (useFahrenheit)
-//        {
-//          matrix.print(int(round((thermostatController.GetTargetTemperature() * 9 / 5) + 32)));
-//          matrix.print(F("f"));
-//        }
-//        else
-//        {
-//          matrix.print(int(round(thermostatController.GetTargetTemperature())));
-//          matrix.print(F("c"));
-//        }          
-//      }
-//      else
-//      {
-//        if (useFahrenheit)
-//        {
-//          matrix.print(int(round((thermostatController.GetCurrentTemperature() * 9 / 5) + 32)));
-//          matrix.print(F("f"));
-//        }
-//        else
-//        {
-//          matrix.print(int(round(thermostatController.GetCurrentTemperature())));
-//          matrix.print(F("c"));
-//        }      
-//              
-//  
-//        if(thermostatController.IsInLocalMode())
-//        {
-//          matrix.print(F("L"));
-//        }
-//      }
     }
+
+    matrix.print(str);
 
     if (showGraph && thermostatController.GetPowerState())
     {
