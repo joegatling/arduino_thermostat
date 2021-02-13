@@ -226,8 +226,9 @@ void RemoteThermostatController::AsyncRequestResponseGetData()
         {
           float oldTargetTemperature = _targetTemperature;
           _targetTemperature = float(_jsonObject[F("target")][F("celsius")]);
+          float delta = oldTargetTemperature - _targetTemperature;
 
-          if(abs(oldTargetTemperature - _targetTemperature) > 0.01)
+          if(delta > 0.01 || delta < 0.01)
           {
             _wasTemperatureSetRemotely = true;
           }
