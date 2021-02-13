@@ -37,9 +37,9 @@
 
 #define MIN_VALID_TEMP    -50.0f
 
-#define KP 0.7
+#define KP 0.85
 #define KI 0
-#define KD 0 //0.01
+#define KD 0
 
 #define HEATER_PIN        D0
 #define LED_CLOCK         D1
@@ -56,7 +56,7 @@
 #define LOCAL_EEPROM_ADDR 2
 
 #define CURRENT_TEMP_BRIGHTNESS 1
-#define TARGET_TEMP_BRIGHTNESS 15
+#define TARGET_TEMP_BRIGHTNESS 2
 #define TARGET_TEMP_DURATION 3000
 #define POWER_ON_MSG_DURATION 1000
 
@@ -70,6 +70,13 @@
 #define MESSAGE_LOCAL F("WIFI: OFF")
 #define MESSAGE_ONLINE F("WIFI: ON")
 
+#define TARGET_TEMPERATURE_F  int(round((thermostatController.GetTargetTemperature() * 9 / 5) + 32))
+#define TARGET_TEMPERATURE_C  int(round(thermostatController.GetTargetTemperature()))
+
+#define CURRENT_TEMPERATURE_F  int(round((thermostatController.GetCurrentTemperature() * 9 / 5) + 32))
+#define CURRENT_TEMPERATURE_C  int(round(thermostatController.GetCurrentTemperature()))
+
+
 unsigned long lastTemperatureUpdate = 0;
 RemoteThermostatController thermostatController(API_KEY, THERMOSTAT_NAME, false);
 
@@ -80,10 +87,6 @@ double target, current;
 bool pidState;
 bool heaterState;
 AutoPIDRelay pid(&current, &target, &pidState, HEATER_RELAY_WINDOW_SIZE, KP, KI, KD);
-
-//ButtonKing upButton(UP_BUTTON_PIN, false);
-//ButtonKing downButton(DOWN_BUTTON_PIN, false);
-//ButtonKing powerButton(POWER_BUTTON_PIN, false);
 
 SimpleButton upButton(UP_BUTTON_PIN);
 SimpleButton downButton(DOWN_BUTTON_PIN);
@@ -178,7 +181,8 @@ void setup()
   ArduinoOTA.setHostname("Thermostat");
   ArduinoOTA.setPassword("esp8266");
 
-  ArduinoOTA.onEnd([]() {
+  ArduinoOTA.onEnd([]() 
+  {
     matrix.setFont(&Thermostat_Font);
     matrix.setTextSize(1);
     matrix.setTextWrap(false);  // we dont want text to wrap so it scrolls nicely
@@ -189,6 +193,7 @@ void setup()
   
     matrix.writeDisplay();  
   });
+  
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) 
   {
     matrix.setFont(&Thermostat_Font);
@@ -207,7 +212,9 @@ void setup()
     
     Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
   });
-  ArduinoOTA.onError([](ota_error_t error) {
+  
+  ArduinoOTA.onError([](ota_error_t error) 
+  {
     Serial.printf("Error[%u]: ", error);
     if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
     else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
@@ -215,6 +222,7 @@ void setup()
     else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
     else if (error == OTA_END_ERROR) Serial.println("End Failed");
   });
+  
   ArduinoOTA.begin();
 }
 
@@ -315,7 +323,6 @@ void updateLED()
   matrix.setTextSize(1);
   matrix.setTextWrap(false);  // we dont want text to wrap so it scrolls nicely
   matrix.setTextColor(LED_ON);
-  //matrix.setRotation(3);
 
   matrix.clear();
   
@@ -326,32 +333,30 @@ void updateLED()
   }
   else
   {
-    if (millis() < setTempTime + TARGET_TEMP_DURATION)
+    if (shouldShowTargetTemperature())
     {  
       matrix.setBrightness(TARGET_TEMP_BRIGHTNESS);
   
       if (thermostatController.GetPowerState() == false)
       {
         sprintf(str, "OFF");
-        //matrix.print(str);
       }
       else
       {
         if (didSetThermostatPowerOn && millis() < setTempTime + POWER_ON_MSG_DURATION)
         {
           sprintf(str, "ON");
-          //matrix.print(F("ON"));
         }
         else
         {
           didSetThermostatPowerOn = false;
           if (useFahrenheit)
           {
-            sprintf(str, "%df", int(round((thermostatController.GetTargetTemperature() * 9 / 5) + 32)));
+            sprintf(str, "%df", TARGET_TEMPERATURE_F);
           }
           else
           {
-            sprintf(str, "%dc", int(round(thermostatController.GetTargetTemperature())));
+            sprintf(str, "%dc", TARGET_TEMPERATURE_C);
           }       
         }
       }
@@ -376,22 +381,22 @@ void updateLED()
       {
         if (useFahrenheit)
         {
-          sprintf(str, "%dfL", int(round((thermostatController.GetCurrentTemperature() * 9 / 5) + 32)));
+          sprintf(str, "%dfL", CURRENT_TEMPERATURE_F);
         }
         else
         {
-          sprintf(str, "%dcL", int(round(thermostatController.GetCurrentTemperature())));
+          sprintf(str, "%dcL", CURRENT_TEMPERATURE_C);
         }      
       }
       else
       {
         if (useFahrenheit)
         {
-          sprintf(str, "%df", int(round((thermostatController.GetCurrentTemperature() * 9 / 5) + 32)));
+          sprintf(str, "%df", CURRENT_TEMPERATURE_F);
         }
         else
         {
-          sprintf(str, "%dc", int(round(thermostatController.GetCurrentTemperature())));
+          sprintf(str, "%dc", CURRENT_TEMPERATURE_C);
         }               
       }
 
@@ -412,6 +417,11 @@ void updateLED()
 
   matrix.writeDisplay();
 
+}
+
+bool shouldShowTargetTemperature()
+{
+  return millis() < setTempTime + TARGET_TEMP_DURATION;
 }
 
 unsigned long getStatusMessageTime()
@@ -458,14 +468,6 @@ void drawPulseState()
   int blinking = (int)(millis() / 500) % 2;
 
   float t = (float)(millis() % HEATER_RELAY_WINDOW_SIZE) / HEATER_RELAY_WINDOW_SIZE;
-  //t /= HEATER_RELAY_WINDOW_SIZE;
-
-  //  USE_SERIAL.print(F("Millis: "));
-  //  USE_SERIAL.print(millis());
-  //  USE_SERIAL.print(F("  Last Time: "));
-  //  USE_SERIAL.println(pid.getLastPulseTime());
-  //  USE_SERIAL.print(F("T: "));
-  //  USE_SERIAL.println(t);
 
   if (pid.getPulseValue() > 0.0f)
   {
@@ -513,7 +515,7 @@ void adjustTargetTemp(int delta)
 {
   if (thermostatController.GetPowerState())
   {
-    if(millis() < setTempTime + TARGET_TEMP_DURATION)
+    if(shouldShowTargetTemperature())
     {    
       if (useFahrenheit)
       {
