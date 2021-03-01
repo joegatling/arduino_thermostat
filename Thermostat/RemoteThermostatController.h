@@ -43,6 +43,7 @@ class RemoteThermostatController
     bool IsInLocalMode() { return _isInLocalMode; }
     bool SetLocalMode(bool isLocalMode) { _isInLocalMode = isLocalMode; }
 
+    float GetRemoteTemperatureChangeDelta() { return _remoteTemperatureChangeDelta; }
       
   private: 
 
@@ -71,6 +72,7 @@ class RemoteThermostatController
     bool _shouldGetData = false;
 
     bool _wasTemperatureSetRemotely = false;
+    float _remoteTemperatureChangeDelta = 0;
     bool _wasPowerSetRemotely = false;
 
     bool _isInLocalMode = false;
@@ -94,6 +96,8 @@ class RemoteThermostatController
     void GetDataFromServer();
 
     bool IsRequestInProgress() { return _currentRequestType != NO_REQUEST; }
+
+    
 
 };
 #endif

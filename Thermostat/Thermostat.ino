@@ -26,6 +26,8 @@
 
 #define USE_SERIAL Serial
 
+#define TEMPERATURE_ERROR_OFFSET -1.0
+
 #define TEMPERATURE_POLL_INTERVAL   5000
 // 960000 = 16 minutes
 // 1920000 = 32 minutes
@@ -37,7 +39,9 @@
 
 #define MIN_VALID_TEMP    -50.0f
 
-#define KP 0.85
+#define GEORGE_BOOST_TIME           180000
+
+#define KP 0.8
 #define KI 0
 #define KD 0
 
@@ -55,7 +59,7 @@
 #define GRAPH_EEPROM_ADDR 1
 #define LOCAL_EEPROM_ADDR 2
 
-#define CURRENT_TEMP_BRIGHTNESS 1
+#define CURRENT_TEMP_BRIGHTNESS isInGeorgeBoostTime() ? 8 : 1
 #define TARGET_TEMP_BRIGHTNESS 2
 #define TARGET_TEMP_DURATION 3000
 #define POWER_ON_MSG_DURATION 1000
@@ -94,19 +98,21 @@ SimpleButton powerButton(POWER_BUTTON_PIN);
 
 
 bool useFahrenheit = false;
-
 bool showGraph = false;
 
 Adafruit_8x16matrix matrix = Adafruit_8x16matrix();
 
 unsigned long setTempTime = 0;
 unsigned long lastToggleTime = 0;
+unsigned long georgeBoostTime = 0;
 
 bool temperatureError = false;
 bool didSetThermostatPowerOn = false;
 
 bool oldPowerState = false;
 float oldTemperature = 0;
+
+
 
 bool isWifiConnected = false;
 
@@ -254,6 +260,12 @@ void loop()
     else if (thermostatController.WasTemperatureSetRemotely())
     {
       setTempTime = millis();
+
+      if(thermostatController.GetRemoteTemperatureChangeDelta() > 0)
+      {
+        georgeBoostTime =  millis();
+      }
+      
     }
 
     thermostatController.Update();
@@ -409,9 +421,20 @@ void updateLED()
 
 
 
-    if (showGraph && thermostatController.GetPowerState())
+ 
+
+    if(isInGeorgeBoostTime())    
     {
-      drawPulseState();
+        float timeRemaining = 1.0f - ((float)(millis() - georgeBoostTime) / GEORGE_BOOST_TIME);
+
+        matrix.fillRect(13,7 - floor(timeRemaining * 8),3,ceil(timeRemaining * 8), LED_ON);
+    }
+    else
+    {
+        if (showGraph && thermostatController.GetPowerState())
+        {
+          drawPulseState();
+        }
     }
   }
 
@@ -489,11 +512,11 @@ void updateTemperature()
 
   if ((millis() - lastTemperatureUpdate) > TEMPERATURE_POLL_INTERVAL)
   {
-    float currentTemperature = sensors.getTempCByIndex(0);
+    float currentTemperature = sensors.getTempCByIndex(0) + TEMPERATURE_ERROR_OFFSET;
 
     if (currentTemperature > MIN_VALID_TEMP)
     {
-      thermostatController.SetCurrentTemperature(sensors.getTempCByIndex(0));
+      thermostatController.SetCurrentTemperature(currentTemperature);
       temperatureError = false;
     }
     else
@@ -528,6 +551,11 @@ void adjustTargetTemp(int delta)
         int temp = min(ABSOLUTE_MAX_TEMP, max(ABSOLUTE_MIN_TEMP, thermostatController.GetTargetTemperature() + delta));
         thermostatController.SetTargetTemperature(temp);  
       }
+
+      if(delta > 0)
+      {
+        georgeBoostTime = millis();
+      }
     }
     
     didSetThermostatPowerOn = false;
@@ -546,6 +574,11 @@ void adjustTargetTemp(int delta)
         thermostatController.SetTargetTemperature(temp);  
       }
     
+      if(delta > 0)
+      {
+        georgeBoostTime = millis();
+      }
+
       thermostatController.SetPowerState(true);
       didSetThermostatPowerOn = true;
   }  
@@ -591,10 +624,13 @@ void updateHeaterController()
 {
   current = (double)thermostatController.GetCurrentTemperature();
 
+  bool isInGeorgeBoost = false;
+
   // If the thermostat is unpowered, simply set the target to current. This prevents the relay from toggling too rapidly if a user spams the power
   if (thermostatController.GetPowerState() && !temperatureError)
   {
     target = (double)thermostatController.GetTargetTemperature();
+    isInGeorgeBoost = isInGeorgeBoostTime();
   }
   else
   {
@@ -606,7 +642,7 @@ void updateHeaterController()
 
   if (millis() - lastToggleTime > MIN_TOGGLE_TIME)
   {
-    toggleHeater(pidState);  
+    toggleHeater(pidState || isInGeorgeBoost);  
   }
 }
 
@@ -615,4 +651,11 @@ unsigned long getTimeLeftInRelayPulse()
   unsigned long timeInCurrentWindow = millis() % HEATER_RELAY_WINDOW_SIZE;
   unsigned long pulseTime = pid.getPulseValue() * HEATER_RELAY_WINDOW_SIZE;
   return pulseTime - timeInCurrentWindow;
+}
+
+bool isInGeorgeBoostTime()
+{
+  return (georgeBoostTime > 0) && 
+         (millis() - georgeBoostTime) < GEORGE_BOOST_TIME &&
+         thermostatController.GetCurrentTemperature() < thermostatController.GetTargetTemperature();
 }

@@ -38,6 +38,7 @@ void RemoteThermostatController::Update()
 {
   _wasTemperatureSetRemotely = false;
   _wasPowerSetRemotely = false;
+  _remoteTemperatureChangeDelta = 0;
   
   if((millis() - _lastServerUpdate) > SERVER_POLL_INTERVAL)
   {
@@ -226,11 +227,13 @@ void RemoteThermostatController::AsyncRequestResponseGetData()
         {
           float oldTargetTemperature = _targetTemperature;
           _targetTemperature = float(_jsonObject[F("target")][F("celsius")]);
-          float delta = oldTargetTemperature - _targetTemperature;
+          float delta = _targetTemperature - oldTargetTemperature;
 
-          if(delta > 0.01 || delta < 0.01)
+          if(delta > 0.01 || delta < -0.01)
           {
             _wasTemperatureSetRemotely = true;
+
+            _remoteTemperatureChangeDelta = delta;
           }
 
           SERIAL_OUTPUT.print("Target Temperature: ");
