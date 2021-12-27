@@ -41,9 +41,11 @@ class RemoteThermostatController
     bool WasPowerSetRemotely() { return _wasPowerSetRemotely; }    
 
     bool IsInLocalMode() { return _isInLocalMode; }
-    bool SetLocalMode(bool isLocalMode) { _isInLocalMode = isLocalMode; }
+    void SetLocalMode(bool isLocalMode) { _isInLocalMode = isLocalMode; }
 
     float GetRemoteTemperatureChangeDelta() { return _remoteTemperatureChangeDelta; }
+
+    unsigned long GetTimeSinceLastServerResponse() { return (_lastServerResponse == 0 || millis() < _lastServerResponse) ? 0 : millis() - _lastServerResponse; }    
       
   private: 
 
@@ -61,6 +63,7 @@ class RemoteThermostatController
     float _minTemp = 16.0f;
 
     unsigned long _lastServerUpdate = 0;
+    unsigned long _lastServerResponse = 0;
 
     bool _isCurrentTemperatureSetLocally = false;
     bool _isTargetTemperatureSetLocally = false;

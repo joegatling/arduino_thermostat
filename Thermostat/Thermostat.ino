@@ -46,9 +46,12 @@
 #define KD 0
 
 #define HEATER_PIN        D0
+
 #define LED_CLOCK         D1
 #define LED_DATA          D2
+
 #define ONE_WIRE_PIN      D4
+
 #define UP_BUTTON_PIN     D5
 #define DOWN_BUTTON_PIN   D6
 #define POWER_BUTTON_PIN  D7
@@ -67,8 +70,11 @@
 #define STATUS_MESSAGE_DURATION 6000
 #define STATUS_MESSAGE_SCROLL_DELAY 500
 #define STATUS_MESSAGE_SCROLL_STEP 100
+ 
+#define SERVER_TIMEOUT_TIME 120000
 
 #define MESSAGE_WIFI F("WIFI?")
+#define MESSAGE_TIMEOUT_ERR F("SERVER TIMEOUT ERROR")
 #define MESSAGE_RECONNECTED F("CONNECTED")
 #define MESSAGE_TEMP_ERR F("TEMPERATURE READ ERROR")
 #define MESSAGE_LOCAL F("WIFI: OFF")
@@ -92,9 +98,10 @@ bool pidState;
 bool heaterState;
 AutoPIDRelay pid(&current, &target, &pidState, HEATER_RELAY_WINDOW_SIZE, KP, KI, KD);
 
-SimpleButton upButton(UP_BUTTON_PIN);
-SimpleButton downButton(DOWN_BUTTON_PIN);
-SimpleButton powerButton(POWER_BUTTON_PIN);
+// Breadboard version of thermostat uses pulldowns
+SimpleButton upButton(UP_BUTTON_PIN, true);
+SimpleButton downButton(DOWN_BUTTON_PIN, true);
+SimpleButton powerButton(POWER_BUTTON_PIN, true);
 
 
 bool useFahrenheit = false;
@@ -112,9 +119,8 @@ bool didSetThermostatPowerOn = false;
 bool oldPowerState = false;
 float oldTemperature = 0;
 
-
-
 bool isWifiConnected = false;
+bool isInTimeoutError = false;
 
 unsigned long statusMessageTime = 0;
 String statusMessage;
@@ -124,7 +130,7 @@ char str[8];
 
 void setup()
 {
-  USE_SERIAL.begin(115200);
+  USE_SERIAL.begin(9600);
   matrix.begin(0x70);  // pass in the address
 
   matrix.setFont(&Thermostat_Font);
@@ -144,21 +150,21 @@ void setup()
   digitalWrite(HEATER_PIN, LOW);
   heaterState = false;
 
-  upButton.SetClickCallback([]()
+  upButton.SetEndPressCallback([]()
   {
     adjustTargetTemp(1);
   });
   upButton.SetBeginPressCallback(wakeUp);
   upButton.SetHoldCallback(upButtonLongPress);
   
-  downButton.SetClickCallback([]()
+  downButton.SetEndPressCallback([]()
   {
     adjustTargetTemp(-1);
   });
   downButton.SetBeginPressCallback(wakeUp); 
   downButton.SetHoldCallback(downButtonLongPress);
 
-  powerButton.SetClickCallback([]()
+  powerButton.SetEndPressCallback([]()
   {
     toggleThermostatPower();
   });
@@ -170,19 +176,34 @@ void setup()
 
   WiFi.hostname(F("Thermostat"));
   WiFi.begin(STASSID, STAPSK);
+  
+  delay(200);
 
+  int dots = 0;
+  
   while (WiFi.status() != WL_CONNECTED)
   {
+    matrix.clear();
+    matrix.setCursor(0, 5);
+    matrix.print("HI!");
+
+    for(int i = 0; i < dots % 4; i++)
+    {
+      matrix.print(".");
+    }
+
+    dots++;
+    
+    matrix.writeDisplay();    
     delay(500);
   }
 
-  isWifiConnected = true;
+  isWifiConnected = false;
 
   EEPROM.begin(3);
   useFahrenheit = boolean(EEPROM.read(FARENHEIT_EEPROM_ADDR));  
   showGraph = boolean(EEPROM.read(GRAPH_EEPROM_ADDR));
   thermostatController.SetLocalMode(boolean(EEPROM.read(LOCAL_EEPROM_ADDR)));
-
 
   ArduinoOTA.setHostname("Thermostat");
   ArduinoOTA.setPassword("esp8266");
@@ -246,6 +267,23 @@ void loop()
   // wait for WiFi connection
   if (WiFi.status() == WL_CONNECTED)
   {
+    if(thermostatController.GetTimeSinceLastServerResponse() > SERVER_TIMEOUT_TIME)
+    {
+      if(!isInTimeoutError)
+      {
+        isInTimeoutError = true;
+        showStatusMessage(MESSAGE_TIMEOUT_ERR);
+      }
+    }
+    else
+    {
+      if(isInTimeoutError)
+      {
+        isInTimeoutError = false;
+        showStatusMessage(MESSAGE_RECONNECTED);
+      }      
+    }
+    
     if(!isWifiConnected)
     {
       isWifiConnected = true;
@@ -481,7 +519,7 @@ void drawStatusMessage()
     } 
   }
   
-  matrix.setCursor(xOffset, 4);
+  matrix.setCursor(xOffset, 5);
   matrix.print(statusMessage);
 }
 

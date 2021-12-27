@@ -51,7 +51,7 @@ void RemoteThermostatController::Update()
 
   if(!IsRequestInProgress())
   {
-    // This if statement ensure we only do one of these operations each update.
+    // This if statement ensures we only do one of these operations each update.
     if(_shouldSendCurrentTemperature && _isCurrentTemperatureSetLocally)
     {
       SendCurrentTemperatureToServer();
@@ -175,6 +175,8 @@ void RemoteThermostatController::OnRequestReadyStateChanged(void* optParm, async
     {
       AsyncRequestResponseGetData();
     }   
+
+    _lastServerResponse = millis();
 
      _currentRequestType = NO_REQUEST;
   }

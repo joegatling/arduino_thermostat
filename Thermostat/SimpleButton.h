@@ -4,7 +4,7 @@
 #include <Arduino.h>
 
 extern "C" {
-typedef void (*callbackFunction)(void);
+typedef void (*simpleButtonCallbackFunction)(void);
 }
 
 
@@ -12,12 +12,13 @@ class SimpleButton
 {
   public:
     SimpleButton(int pin);
+    SimpleButton(int pin, bool usePullDownLogic);
 
     void Update();
 
-    void SetBeginPressCallback(callbackFunction function);
-    void SetClickCallback(callbackFunction function);
-    void SetHoldCallback(callbackFunction function);
+    void SetBeginPressCallback(simpleButtonCallbackFunction function);
+    void SetEndPressCallback(simpleButtonCallbackFunction function);
+    void SetHoldCallback(simpleButtonCallbackFunction function);
 
   private:
     int _pin;
@@ -30,9 +31,11 @@ class SimpleButton
 
     bool _didHoldAction = false;
 
-    callbackFunction _beginPressFunction = NULL;
-    callbackFunction _clickFunction = NULL;
-    callbackFunction _holdFunction = NULL;
+    bool _usePullDownLogic = false;
+
+    simpleButtonCallbackFunction _beginPressFunction = NULL;
+    simpleButtonCallbackFunction _clickFunction = NULL;
+    simpleButtonCallbackFunction _holdFunction = NULL;
     
 };
 
