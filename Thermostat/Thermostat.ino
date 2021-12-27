@@ -98,7 +98,7 @@ bool pidState;
 bool heaterState;
 AutoPIDRelay pid(&current, &target, &pidState, HEATER_RELAY_WINDOW_SIZE, KP, KI, KD);
 
-// Breadboard version of thermostat uses pulldowns
+// Breadboard version of thermostat uses pulldowns. Replace with pullup code when remaking the circuit
 SimpleButton upButton(UP_BUTTON_PIN, true);
 SimpleButton downButton(DOWN_BUTTON_PIN, true);
 SimpleButton powerButton(POWER_BUTTON_PIN, true);
