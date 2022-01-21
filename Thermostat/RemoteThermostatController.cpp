@@ -8,8 +8,20 @@
 #define SERVER_POLL_INTERVAL 10000
 
 
+#define DEVICE_HOSTNAME "thermostat"
+#define APP_NAME "sync"
+
+#define SYSLOG_SERVER "255.255.255.255"
+#define SYSLOG_PORT 514
+
+WiFiUDP udpClient;
+
+// Create a new syslog instance with LOG_KERN facility
+Syslog syslog(udpClient, SYSLOG_SERVER, SYSLOG_PORT, DEVICE_HOSTNAME, APP_NAME, LOG_KERN);
+
+
 RemoteThermostatController::RemoteThermostatController(String key, String thermostatName, bool useRemoteTemperature)
-{
+{  
   _apiKey = key;
   _thermostat = thermostatName;
   _shouldUseRemoteTemperature = useRemoteTemperature;
@@ -32,6 +44,7 @@ RemoteThermostatController::RemoteThermostatController(String key, String thermo
   _isThermostatOn = false;
 
   GetDataFromServer();
+  
 }
 
 void RemoteThermostatController::Update()
@@ -66,6 +79,17 @@ void RemoteThermostatController::Update()
     {
       GetDataFromServer();
       _shouldGetData = false;
+    }
+  }
+  else
+  {
+    // Abandon the request if it times too long
+    if(_request.elapsedTime() > REQUEST_TIMEOUT)
+    {
+      syslog.log(LOG_ERR, "Request Timeout");
+            
+      _currentRequestType = NO_REQUEST;
+      _request.abort();      
     }
   }
 }
@@ -106,7 +130,9 @@ boolean RemoteThermostatController::GetPowerState()
 void RemoteThermostatController::SendCurrentTemperatureToServer()
 {
   if(!IsRequestInProgress())
-  {  
+  {
+
+      
     String url = String(SET_CURRENT_TEMPERATURE_URL);
     url.concat(F("?key="));
     url.concat(_apiKey);
@@ -117,10 +143,17 @@ void RemoteThermostatController::SendCurrentTemperatureToServer()
 
     _currentRequestType = SEND_CURRENT_TEMPERATURE;
 
+
+    if(_isSyslogOn)
+    {
+      syslog.log(LOG_DEBUG, "Sending current data to server."); 
+      syslog.log(LOG_DEBUG, url);               
+    }
+
     SERIAL_OUTPUT.println(F("Sending Current Temperature"));        
     _request.open("GET", url.c_str());
     _request.send();
-    
+
   }
 }
 
@@ -141,9 +174,16 @@ void RemoteThermostatController::SendTargetTemperatureToServer()
     
     _currentRequestType = SET_TARGET_TEMPERATURE;
 
+    if(_isSyslogOn)
+    {
+      syslog.log(LOG_DEBUG, "Sending target temp to server."); 
+      syslog.log(LOG_DEBUG, url);               
+    }       
+
     SERIAL_OUTPUT.println(F("Sending Target Temperature"));    
     _request.open("GET", url.c_str());
     _request.send();
+ 
   }
 }
 
@@ -155,12 +195,27 @@ void RemoteThermostatController::GetDataFromServer()
 
     SERIAL_OUTPUT.println(F("Get Data"));        
     _request.open("GET", _getDataUrl.c_str());
-    _request.send();    
+    _request.send();   
+
+    if(_isSyslogOn)
+    {
+      syslog.log(LOG_DEBUG, "Requesting data from server."); 
+    }     
   }
 }
 
 void RemoteThermostatController::OnRequestReadyStateChanged(void* optParm, asyncHTTPrequest* request, int readyState)
 {
+  if(_isSyslogOn)
+  {
+    syslog.logf(LOG_DEBUG, "Ready state changed: %d", readyState);
+  }
+   else
+  {     
+    SERIAL_OUTPUT.println(F("No Syslog")); 
+  }
+ 
+  
   if(readyState == 4)
   {    
     if(_currentRequestType == SEND_CURRENT_TEMPERATURE)
@@ -208,6 +263,16 @@ void RemoteThermostatController::AsyncRequestResponseGetData()
     
     SERIAL_OUTPUT.println(F("Thermostat Data:"));
     SERIAL_OUTPUT.println(payload);
+
+    if(_isSyslogOn)
+    {
+      syslog.log(LOG_DEBUG, "Thermostat Data:"); 
+      syslog.log(LOG_DEBUG, payload);               
+    }
+    else
+    {     
+      SERIAL_OUTPUT.println(F("No Syslog")); 
+    }
     
     auto error = deserializeJson(_jsonDocument, payload);
     
@@ -277,5 +342,14 @@ void RemoteThermostatController::AsyncRequestResponseGetData()
       SERIAL_OUTPUT.print(F("deserializeJson() failed: "));
       SERIAL_OUTPUT.println(error.c_str());      
     }
+  }
+  else
+  {
+    
+    if(_isSyslogOn)
+    {
+      syslog.logf(LOG_DEBUG, "HTTP Response Code %d", (int)_request.responseHTTPcode()); 
+    }
+
   }
 }

@@ -24,6 +24,7 @@
    Wifi SSID and password.
 */
 
+
 #define USE_SERIAL Serial
 
 #define TEMPERATURE_ERROR_OFFSET -1.0
@@ -63,29 +64,28 @@
 #define LOCAL_EEPROM_ADDR 2
 
 #define CURRENT_TEMP_BRIGHTNESS isInGeorgeBoostTime() ? 8 : 1
-#define TARGET_TEMP_BRIGHTNESS 2
-#define TARGET_TEMP_DURATION 3000
-#define POWER_ON_MSG_DURATION 1000
+#define TARGET_TEMP_BRIGHTNESS        2
+#define TARGET_TEMP_DURATION          3000
+#define POWER_ON_MSG_DURATION         1000
 
-#define STATUS_MESSAGE_DURATION 6000
-#define STATUS_MESSAGE_SCROLL_DELAY 500
-#define STATUS_MESSAGE_SCROLL_STEP 100
+#define STATUS_MESSAGE_DURATION       6000
+#define STATUS_MESSAGE_SCROLL_DELAY   500
+#define STATUS_MESSAGE_SCROLL_STEP    100
  
-#define SERVER_TIMEOUT_TIME 120000
+#define SERVER_TIMEOUT_TIME           120000
 
-#define MESSAGE_WIFI F("WIFI?")
-#define MESSAGE_TIMEOUT_ERR F("SERVER TIMEOUT ERROR")
-#define MESSAGE_RECONNECTED F("CONNECTED")
-#define MESSAGE_TEMP_ERR F("TEMPERATURE READ ERROR")
-#define MESSAGE_LOCAL F("WIFI: OFF")
-#define MESSAGE_ONLINE F("WIFI: ON")
+#define MESSAGE_WIFI          F("WIFI?")
+#define MESSAGE_TIMEOUT_ERR   F("SERVER TIMEOUT ERROR")
+#define MESSAGE_RECONNECTED   F("CONNECTED")
+#define MESSAGE_TEMP_ERR      F("TEMPERATURE READ ERROR")
+#define MESSAGE_LOCAL         F("WIFI: OFF")
+#define MESSAGE_ONLINE        F("WIFI: ON")
 
-#define TARGET_TEMPERATURE_F  int(round((thermostatController.GetTargetTemperature() * 9 / 5) + 32))
-#define TARGET_TEMPERATURE_C  int(round(thermostatController.GetTargetTemperature()))
+#define TARGET_TEMPERATURE_F    int(round((thermostatController.GetTargetTemperature() * 9 / 5) + 32))
+#define TARGET_TEMPERATURE_C    int(round(thermostatController.GetTargetTemperature()))
 
-#define CURRENT_TEMPERATURE_F  int(round((thermostatController.GetCurrentTemperature() * 9 / 5) + 32))
-#define CURRENT_TEMPERATURE_C  int(round(thermostatController.GetCurrentTemperature()))
-
+#define CURRENT_TEMPERATURE_F   int(round((thermostatController.GetCurrentTemperature() * 9 / 5) + 32))
+#define CURRENT_TEMPERATURE_C   int(round(thermostatController.GetCurrentTemperature()))
 
 unsigned long lastTemperatureUpdate = 0;
 RemoteThermostatController thermostatController(API_KEY, THERMOSTAT_NAME, false);
@@ -102,7 +102,6 @@ AutoPIDRelay pid(&current, &target, &pidState, HEATER_RELAY_WINDOW_SIZE, KP, KI,
 SimpleButton upButton(UP_BUTTON_PIN, true);
 SimpleButton downButton(DOWN_BUTTON_PIN, true);
 SimpleButton powerButton(POWER_BUTTON_PIN, true);
-
 
 bool useFahrenheit = false;
 bool showGraph = false;
@@ -121,6 +120,8 @@ float oldTemperature = 0;
 
 bool isWifiConnected = false;
 bool isInTimeoutError = false;
+
+#define IS_ERROR_STATE (!isWifiConnected || isInTimeoutError)
 
 unsigned long statusMessageTime = 0;
 String statusMessage;
@@ -198,6 +199,12 @@ void setup()
     delay(500);
   }
 
+  WiFi.setAutoReconnect(true);
+  WiFi.persistent(true);
+
+  WiFi.onSoftAPModeStationDisconnected(&onStationDisconnected);
+//  WiFi.onEvent(wifiDisconnected, WIFI_EVENT_STAMODE_DISCONNECTED); 
+
   isWifiConnected = false;
 
   EEPROM.begin(3);
@@ -205,8 +212,10 @@ void setup()
   showGraph = boolean(EEPROM.read(GRAPH_EEPROM_ADDR));
   thermostatController.SetLocalMode(boolean(EEPROM.read(LOCAL_EEPROM_ADDR)));
 
+  thermostatController.SetSyslogMode(showGraph);
+
   ArduinoOTA.setHostname("Thermostat");
-  ArduinoOTA.setPassword("esp8266");
+  ArduinoOTA.setPassword("thermostat");
 
   ArduinoOTA.onEnd([]() 
   {
@@ -321,6 +330,17 @@ void loop()
   updateLED();
 }
 
+void onStationDisconnected(const WiFiEventSoftAPModeStationDisconnected& evt) 
+{
+
+  USE_SERIAL.println("Disconnected from WIFI access point");
+  USE_SERIAL.println("Reconnecting...");
+
+  showStatusMessage("DISCONNECTED");
+
+  WiFi.begin(STASSID, STAPSK);
+}
+
 void showStatusMessage(String message)
 {
   statusMessage = message;
@@ -345,6 +365,8 @@ void upButtonLongPress()
 void downButtonLongPress()
 {
   showGraph = !showGraph;
+
+  thermostatController.SetSyslogMode(showGraph);
 
   EEPROM.write(GRAPH_EEPROM_ADDR, (byte)showGraph);
   EEPROM.commit();    
@@ -457,14 +479,9 @@ void updateLED()
       matrix.print(str);      
     }
 
-
-
- 
-
     if(isInGeorgeBoostTime())    
     {
         float timeRemaining = 1.0f - ((float)(millis() - georgeBoostTime) / GEORGE_BOOST_TIME);
-
         matrix.fillRect(13,7 - floor(timeRemaining * 8),3,ceil(timeRemaining * 8), LED_ON);
     }
     else
@@ -476,8 +493,12 @@ void updateLED()
     }
   }
 
-  matrix.writeDisplay();
+  if(IS_ERROR_STATE)
+  {
+    matrix.drawPixel(0,0, LED_ON);
+  }
 
+  matrix.writeDisplay();
 }
 
 bool shouldShowTargetTemperature()

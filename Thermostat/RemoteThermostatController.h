@@ -6,11 +6,17 @@
 #include <ESP8266WiFi.h> 
 #include <ESP8266HTTPClient.h>
 #include <asyncHTTPrequest.h>
+#include <WiFiUdp.h>
+#include <Syslog.h>
+
 //#include <AsyncHTTPRequest_Generic.h> 
 
 #define SERIAL_OUTPUT Serial
 //#define JSON_SIZE 2*JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(4) + JSON_OBJECT_SIZE(5) + 248
 #define JSON_SIZE 512
+
+#define REQUEST_TIMEOUT 100000
+
 
 enum ServerRequestType
 {
@@ -45,7 +51,10 @@ class RemoteThermostatController
 
     float GetRemoteTemperatureChangeDelta() { return _remoteTemperatureChangeDelta; }
 
-    unsigned long GetTimeSinceLastServerResponse() { return (_lastServerResponse == 0 || millis() < _lastServerResponse) ? 0 : millis() - _lastServerResponse; }    
+    unsigned long GetTimeSinceLastServerResponse() { return (_lastServerResponse == 0 || millis() < _lastServerResponse) ? 0 : millis() - _lastServerResponse; }  
+
+    void SetSyslogMode(bool isSyslogOn) { _isSyslogOn = isSyslogOn; }
+    bool GetSyslogMode() { return _isSyslogOn; }
       
   private: 
 
@@ -79,6 +88,7 @@ class RemoteThermostatController
     bool _wasPowerSetRemotely = false;
 
     bool _isInLocalMode = false;
+    bool _isSyslogOn = false;
     
     StaticJsonDocument<JSON_SIZE> _jsonDocument;
     JsonObject _jsonObject;
@@ -86,6 +96,8 @@ class RemoteThermostatController
     asyncHTTPrequest _request;
     //bool _isRequestActive = false;
     ServerRequestType _currentRequestType;
+    
+    //Syslog syslog;    
 
     void OnRequestReadyStateChanged(void* optParm, asyncHTTPrequest* request, int readyState);
     void AsyncRequestResponseSendCurrentTemperature();
