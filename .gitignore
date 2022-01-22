@@ -31,3 +31,4 @@
 *.out
 *.app
 ArduinoThermostat/Configuration.h
+Thermostat/.vscode/
