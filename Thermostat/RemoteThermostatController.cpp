@@ -60,6 +60,11 @@ void RemoteThermostatController::Update()
     _shouldGetData = _isInLocalMode == false;
 
     _lastServerUpdate = millis();
+
+     if(_isSyslogOn)
+      {
+        syslog.log(LOG_DEBUG, "Time to sync"); 
+      }    
   }  
 
   if(!IsRequestInProgress())
@@ -131,8 +136,6 @@ void RemoteThermostatController::SendCurrentTemperatureToServer()
 {
   if(!IsRequestInProgress())
   {
-
-      
     String url = String(SET_CURRENT_TEMPERATURE_URL);
     url.concat(F("?key="));
     url.concat(_apiKey);
@@ -143,17 +146,16 @@ void RemoteThermostatController::SendCurrentTemperatureToServer()
 
     _currentRequestType = SEND_CURRENT_TEMPERATURE;
 
-
     if(_isSyslogOn)
     {
       syslog.log(LOG_DEBUG, "Sending current data to server."); 
       syslog.log(LOG_DEBUG, url);               
     }
 
-    SERIAL_OUTPUT.println(F("Sending Current Temperature"));        
+    SERIAL_OUTPUT.println(F("Sending Current Temperature"));     
+       
     _request.open("GET", url.c_str());
     _request.send();
-
   }
 }
 
@@ -181,6 +183,7 @@ void RemoteThermostatController::SendTargetTemperatureToServer()
     }       
 
     SERIAL_OUTPUT.println(F("Sending Target Temperature"));    
+    
     _request.open("GET", url.c_str());
     _request.send();
  
@@ -206,14 +209,14 @@ void RemoteThermostatController::GetDataFromServer()
 
 void RemoteThermostatController::OnRequestReadyStateChanged(void* optParm, asyncHTTPrequest* request, int readyState)
 {
-  if(_isSyslogOn)
-  {
-    syslog.logf(LOG_DEBUG, "Ready state changed: %d", readyState);
-  }
-   else
-  {     
-    SERIAL_OUTPUT.println(F("No Syslog")); 
-  }
+//  if(_isSyslogOn)
+//  {
+//    syslog.logf(LOG_DEBUG, "Ready state changed: %d", readyState);
+//  }
+//   else
+//  {     
+//    SERIAL_OUTPUT.println(F("No Syslog")); 
+//  }
  
   
   if(readyState == 4)
@@ -244,7 +247,15 @@ void RemoteThermostatController::AsyncRequestResponseSendCurrentTemperature()
 //    SERIAL_OUTPUT.print(F("Set Current Temp: "));  
 //    SERIAL_OUTPUT.println(_request.responseText());    
 //  }
+
+    if(_isSyslogOn)
+    {
+      syslog.logf(LOG_DEBUG, "Respond Code: %d", (int)_request.responseHTTPcode());
+      syslog.log(LOG_DEBUG, _request.responseText()); 
+    } 
 }
+
+
 
 void RemoteThermostatController::AsyncRequestResponseSetTargetTemperature()
 {
@@ -253,6 +264,12 @@ void RemoteThermostatController::AsyncRequestResponseSetTargetTemperature()
 //    SERIAL_OUTPUT.print(F("Set Target Temp: "));  
 //    SERIAL_OUTPUT.println(_request.responseText());    
 //  }
+
+    if(_isSyslogOn)
+    {
+      syslog.logf(LOG_DEBUG, "Respond Code: %d", (int)_request.responseHTTPcode());
+      syslog.log(LOG_DEBUG, _request.responseText()); 
+    } 
 }
 
 void RemoteThermostatController::AsyncRequestResponseGetData()

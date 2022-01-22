@@ -1,6 +1,7 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <ESP8266WiFi.h>
+#include <ESP8266WiFiGratuitous.h>
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
 #include <AutoPID.h>
@@ -188,7 +189,7 @@ void setup()
     matrix.setCursor(0, 5);
     matrix.print("HI!");
 
-    for(int i = 0; i < dots % 4; i++)
+    for(int i = 0; i < dots % 4; i++) 
     {
       matrix.print(".");
     }
@@ -202,8 +203,9 @@ void setup()
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
 
-  WiFi.onSoftAPModeStationDisconnected(&onStationDisconnected);
-//  WiFi.onEvent(wifiDisconnected, WIFI_EVENT_STAMODE_DISCONNECTED); 
+  experimental::ESP8266WiFiGratuitous::stationKeepAliveSetIntervalMs(10000);
+  
+  WiFi.onStationModeDisconnected(&onStationDisconnected);
 
   isWifiConnected = false;
 
@@ -330,7 +332,7 @@ void loop()
   updateLED();
 }
 
-void onStationDisconnected(const WiFiEventSoftAPModeStationDisconnected& evt) 
+void onStationDisconnected(const WiFiEventStationModeDisconnected& evt) 
 {
 
   USE_SERIAL.println("Disconnected from WIFI access point");
