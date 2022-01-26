@@ -132,25 +132,23 @@ char str[8];
 
 void setup()
 {
-  USE_SERIAL.begin(9600);
-  matrix.begin(0x70);  // pass in the address
+  USE_SERIAL.begin(19200);
 
+  pinMode(HEATER_PIN, OUTPUT);
+  digitalWrite(HEATER_PIN, LOW);
+  heaterState = false;
+
+  matrix.begin(0x70);  // pass in the address
   matrix.setFont(&Thermostat_Font);
   matrix.setTextSize(1);
   matrix.setTextWrap(false);  // we dont want text to wrap so it scrolls nicely
   matrix.setTextColor(LED_ON);
   matrix.setRotation(3);
-
   matrix.setBrightness(15);
-
   matrix.clear();
   matrix.setCursor(0, 5);
   matrix.print("HI!");
   matrix.writeDisplay();
-
-  pinMode(HEATER_PIN, OUTPUT);
-  digitalWrite(HEATER_PIN, LOW);
-  heaterState = false;
 
   upButton.SetEndPressCallback([]()
   {
@@ -175,6 +173,7 @@ void setup()
 
   sensors.requestTemperatures(); // Get initial temperature reading
   sensors.setWaitForConversion(false);
+
 
   WiFi.hostname(F("Thermostat"));
   WiFi.begin(STASSID, STAPSK);
@@ -201,9 +200,8 @@ void setup()
   }
 
   WiFi.setAutoReconnect(true);
-  WiFi.persistent(true);
 
-  experimental::ESP8266WiFiGratuitous::stationKeepAliveSetIntervalMs(10000);
+  experimental::ESP8266WiFiGratuitous::stationKeepAliveSetIntervalMs(5000);
   
   WiFi.onStationModeDisconnected(&onStationDisconnected);
 
@@ -214,7 +212,7 @@ void setup()
   showGraph = boolean(EEPROM.read(GRAPH_EEPROM_ADDR));
   thermostatController.SetLocalMode(boolean(EEPROM.read(LOCAL_EEPROM_ADDR)));
 
-  thermostatController.SetSyslogMode(showGraph);
+  thermostatController.SetSyslogMode(true);
 
   ArduinoOTA.setHostname("Thermostat");
   ArduinoOTA.setPassword("thermostat");
@@ -334,13 +332,20 @@ void loop()
 
 void onStationDisconnected(const WiFiEventStationModeDisconnected& evt) 
 {
+  tryToReconnect();
+}
 
+void tryToReconnect()
+{
+  isWifiConnected = false;
+  
   USE_SERIAL.println("Disconnected from WIFI access point");
   USE_SERIAL.println("Reconnecting...");
 
   showStatusMessage("DISCONNECTED");
 
-  WiFi.begin(STASSID, STAPSK);
+  WiFi.disconnect();
+  WiFi.begin(STASSID, STAPSK);  
 }
 
 void showStatusMessage(String message)
@@ -385,6 +390,11 @@ void powerButtonLongPress()
   else
   {
     showStatusMessage(MESSAGE_ONLINE);
+
+    isWifiConnected = false;
+  
+    WiFi.disconnect();
+    WiFi.begin(STASSID, STAPSK);      
   }
 
   EEPROM.write(LOCAL_EEPROM_ADDR, (byte)thermostatController.IsInLocalMode());
