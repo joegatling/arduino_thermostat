@@ -44,7 +44,6 @@ RemoteThermostatController::RemoteThermostatController(String key, String thermo
   _isThermostatOn = false;
 
   GetDataFromServer();
-  
 }
 
 void RemoteThermostatController::Update()
@@ -61,14 +60,16 @@ void RemoteThermostatController::Update()
 
     _lastServerUpdate = millis();
 
-     if(_isSyslogOn)
-      {
-        syslog.log(LOG_DEBUG, "Time to sync"); 
-      }    
+  
   }  
 
   if(!IsRequestInProgress())
   {
+   if(_isSyslogOn)
+    {
+      syslog.log(LOG_DEBUG, "Time to sync"); 
+    }      
+    
     // This if statement ensures we only do one of these operations each update.
     if(_shouldSendCurrentTemperature && _isCurrentTemperatureSetLocally)
     {
@@ -250,7 +251,7 @@ void RemoteThermostatController::AsyncRequestResponseSendCurrentTemperature()
 
     if(_isSyslogOn)
     {
-      syslog.logf(LOG_DEBUG, "Respond Code: %d", (int)_request.responseHTTPcode());
+      syslog.logf(LOG_DEBUG, "Response Code: %d", (int)_request.responseHTTPcode());
       syslog.log(LOG_DEBUG, _request.responseText()); 
     } 
 }
@@ -267,7 +268,7 @@ void RemoteThermostatController::AsyncRequestResponseSetTargetTemperature()
 
     if(_isSyslogOn)
     {
-      syslog.logf(LOG_DEBUG, "Respond Code: %d", (int)_request.responseHTTPcode());
+      syslog.logf(LOG_DEBUG, "Response Code: %d", (int)_request.responseHTTPcode());
       syslog.log(LOG_DEBUG, _request.responseText()); 
     } 
 }
@@ -361,12 +362,12 @@ void RemoteThermostatController::AsyncRequestResponseGetData()
     }
   }
   else
-  {
-    
+  {    
     if(_isSyslogOn)
     {
-      syslog.logf(LOG_DEBUG, "HTTP Response Code %d", (int)_request.responseHTTPcode()); 
+      syslog.logf(LOG_DEBUG, "Response Code: %d", (int)_request.responseHTTPcode());
     }
 
+    
   }
 }

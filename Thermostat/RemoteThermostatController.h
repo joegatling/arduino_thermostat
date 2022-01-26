@@ -55,6 +55,8 @@ class RemoteThermostatController
 
     void SetSyslogMode(bool isSyslogOn) { _isSyslogOn = isSyslogOn; }
     bool GetSyslogMode() { return _isSyslogOn; }
+
+    bool GetErrorState() { return _request.responseHTTPcode() < 0; }
       
   private: 
 
