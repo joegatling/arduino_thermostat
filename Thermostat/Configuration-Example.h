@@ -7,7 +7,9 @@
 #define THERMOSTAT_NAME "MyThermostat"
 
 // Wifi SSID and Password:
-#define STASSID "" 
-#define STAPSK  ""
+#define WIFI_SSID "" 
+#define WIFI_PASSWORD  ""
+
+#define HOSTNAME "Thermostat"
 
 #endif

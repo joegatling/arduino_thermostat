@@ -1,15 +1,13 @@
-#ifndef REMOTE_THERMOSTAT_CONTROLLER_H
-#define REMOTE_THERMOSTAT_CONTROLLER_H
+#pragma once
+
+#include <AsyncHTTPRequest_Generic.hpp>  
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <ESP8266WiFi.h> 
-#include <ESP8266HTTPClient.h>
-#include <asyncHTTPrequest.h>
+
 #include <WiFiUdp.h>
 #include <Syslog.h>
-
-//#include <AsyncHTTPRequest_Generic.h> 
 
 #define SERIAL_OUTPUT Serial
 //#define JSON_SIZE 2*JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(4) + JSON_OBJECT_SIZE(5) + 248
@@ -95,17 +93,13 @@ class RemoteThermostatController
     StaticJsonDocument<JSON_SIZE> _jsonDocument;
     JsonObject _jsonObject;
 
-    asyncHTTPrequest _request;
-    //bool _isRequestActive = false;
+    AsyncHTTPRequest _request;
     ServerRequestType _currentRequestType;
-    
-    //Syslog syslog;    
 
-    void OnRequestReadyStateChanged(void* optParm, asyncHTTPrequest* request, int readyState);
+    void OnRequestReadyStateChanged(void* optParm, AsyncHTTPRequest* request, int readyState);
     void AsyncRequestResponseSendCurrentTemperature();
     void AsyncRequestResponseSetTargetTemperature();
     void AsyncRequestResponseGetData();
-
 
     void SendCurrentTemperatureToServer();
     void SendTargetTemperatureToServer();    
@@ -113,8 +107,4 @@ class RemoteThermostatController
     void GetDataFromServer();
 
     bool IsRequestInProgress() { return _currentRequestType != NO_REQUEST; }
-
-    
-
 };
-#endif

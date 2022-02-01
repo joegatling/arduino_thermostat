@@ -7,7 +7,6 @@
 
 #define SERVER_POLL_INTERVAL 10000
 
-
 #define DEVICE_HOSTNAME "thermostat"
 #define APP_NAME "sync"
 
@@ -33,7 +32,7 @@ RemoteThermostatController::RemoteThermostatController(String key, String thermo
   _getDataUrl.concat(_thermostat);
 
   _request.setDebug(false);
-  _request.onReadyStateChange([=](void* optParm, asyncHTTPrequest* request, int readyState)
+  _request.onReadyStateChange([=](void* optParm, AsyncHTTPRequest* request, int readyState)
   {
     OnRequestReadyStateChanged(optParm, request, readyState);
   });
@@ -59,8 +58,6 @@ void RemoteThermostatController::Update()
     _shouldGetData = _isInLocalMode == false;
 
     _lastServerUpdate = millis();
-
-  
   }  
 
   if(!IsRequestInProgress())
@@ -208,7 +205,7 @@ void RemoteThermostatController::GetDataFromServer()
   }
 }
 
-void RemoteThermostatController::OnRequestReadyStateChanged(void* optParm, asyncHTTPrequest* request, int readyState)
+void RemoteThermostatController::OnRequestReadyStateChanged(void* optParm, AsyncHTTPRequest* request, int readyState)
 {
 //  if(_isSyslogOn)
 //  {
@@ -243,11 +240,11 @@ void RemoteThermostatController::OnRequestReadyStateChanged(void* optParm, async
 
 void RemoteThermostatController::AsyncRequestResponseSendCurrentTemperature()
 {
-//  if(_request.responseHTTPcode() == 200)
-//  {   
-//    SERIAL_OUTPUT.print(F("Set Current Temp: "));  
-//    SERIAL_OUTPUT.println(_request.responseText());    
-//  }
+    // if(_request.responseHTTPcode() == 200)
+    // {   
+    //   SERIAL_OUTPUT.print(F("Send Current Temp: "));  
+    //   SERIAL_OUTPUT.println(_request.responseText());    
+    // }
 
     if(_isSyslogOn)
     {
@@ -260,11 +257,11 @@ void RemoteThermostatController::AsyncRequestResponseSendCurrentTemperature()
 
 void RemoteThermostatController::AsyncRequestResponseSetTargetTemperature()
 {
-//  if(_request.responseHTTPcode() == 200)
-//  {  
-//    SERIAL_OUTPUT.print(F("Set Target Temp: "));  
-//    SERIAL_OUTPUT.println(_request.responseText());    
-//  }
+    // if(_request.responseHTTPcode() == 200)
+    // {  
+    //   SERIAL_OUTPUT.print(F("Set Target Temp: "));  
+    //   SERIAL_OUTPUT.println(_request.responseText());    
+    // }
 
     if(_isSyslogOn)
     {

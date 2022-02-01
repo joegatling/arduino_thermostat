@@ -10,6 +10,8 @@
 #include <Adafruit_GFX.h>
 #include <ArduinoOTA.h>
 
+#include <AsyncHTTPRequest_Generic.h>
+
 #include "Adafruit_LEDBackpack.h"
 #include "ThermostatFont.h"
 #include "RemoteThermostatController.h"
@@ -25,8 +27,8 @@
    Wifi SSID and password.
 */
 
-
-#define USE_SERIAL Serial
+#define USE_PULLUP_BUTTONS  1  // Use pullup resistors on buttons.
+#define DEMO_MODE           1  // Demo mode sends random temperatures to the server.
 
 #define TEMPERATURE_ERROR_OFFSET -1.0
 
@@ -60,8 +62,8 @@
 
 #define BUTTON_DEBOUNCE_TIME 50
 
-#define FARENHEIT_EEPROM_ADDR 0
-#define GRAPH_EEPROM_ADDR 1
+#define FAHRENHEIT_EEPROM_ADDR 0
+#define DEBUG_EEPROM_ADDR 1
 #define LOCAL_EEPROM_ADDR 2
 
 #define CURRENT_TEMP_BRIGHTNESS isInGeorgeBoostTime() ? 8 : 1
@@ -99,13 +101,19 @@ bool pidState;
 bool heaterState;
 AutoPIDRelay pid(&current, &target, &pidState, HEATER_RELAY_WINDOW_SIZE, KP, KI, KD);
 
-// Breadboard version of thermostat uses pulldowns. Replace with pullup code when remaking the circuit
-SimpleButton upButton(UP_BUTTON_PIN, true);
-SimpleButton downButton(DOWN_BUTTON_PIN, true);
-SimpleButton powerButton(POWER_BUTTON_PIN, true);
+#if USE_PULLUP_BUTTONS
+  SimpleButton upButton(UP_BUTTON_PIN);
+  SimpleButton downButton(DOWN_BUTTON_PIN);
+  SimpleButton powerButton(POWER_BUTTON_PIN);
+#else
+  // Breadboard version of thermostat uses pulldowns. Replace with pullup code when remaking the circuit
+  SimpleButton upButton(UP_BUTTON_PIN, true);
+  SimpleButton downButton(DOWN_BUTTON_PIN, true);
+  SimpleButton powerButton(POWER_BUTTON_PIN, true);
+#endif
 
 bool useFahrenheit = false;
-bool showGraph = false;
+bool showDebugInfo = false;
 
 Adafruit_8x16matrix matrix = Adafruit_8x16matrix();
 
@@ -132,11 +140,20 @@ char str[8];
 
 void setup()
 {
-  USE_SERIAL.begin(19200);
+  Serial.begin(19200);
+  delay(200);
 
+  Serial.println("");
+  Serial.println("");
+  Serial.println("");
+  Serial.print("Initializing Pins... ");
+  
   pinMode(HEATER_PIN, OUTPUT);
-  digitalWrite(HEATER_PIN, LOW);
+  digitalWrite(HEATER_PIN, LOW);  
   heaterState = false;
+
+  Serial.println("Done");
+  Serial.print("Initializing LED Matrix... ");  
 
   matrix.begin(0x70);  // pass in the address
   matrix.setFont(&Thermostat_Font);
@@ -149,6 +166,9 @@ void setup()
   matrix.setCursor(0, 5);
   matrix.print("HI!");
   matrix.writeDisplay();
+
+  Serial.println("Done");
+  Serial.print("Initializing Buttons... ");  
 
   upButton.SetEndPressCallback([]()
   {
@@ -171,15 +191,17 @@ void setup()
   powerButton.SetBeginPressCallback(wakeUp);   
   powerButton.SetHoldCallback(powerButtonLongPress);
 
+  Serial.println("Done");
+
   sensors.requestTemperatures(); // Get initial temperature reading
   sensors.setWaitForConversion(false);
 
+  Serial.print("Connecting to Wifi");  
 
-  WiFi.hostname(F("Thermostat"));
-  WiFi.begin(STASSID, STAPSK);
+  WiFi.hostname(F(HOSTNAME));
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   
   delay(200);
-
   int dots = 0;
   
   while (WiFi.status() != WL_CONNECTED)
@@ -187,6 +209,8 @@ void setup()
     matrix.clear();
     matrix.setCursor(0, 5);
     matrix.print("HI!");
+
+    Serial.print(".");  
 
     for(int i = 0; i < dots % 4; i++) 
     {
@@ -200,21 +224,34 @@ void setup()
   }
 
   WiFi.setAutoReconnect(true);
-
-  experimental::ESP8266WiFiGratuitous::stationKeepAliveSetIntervalMs(5000);
-  
+  experimental::ESP8266WiFiGratuitous::stationKeepAliveSetIntervalMs(5000); 
   WiFi.onStationModeDisconnected(&onStationDisconnected);
-
   isWifiConnected = false;
 
+  Serial.print(" Done (");
+  Serial.print(WiFi.localIP());
+  Serial.println(")");
+
+  Serial.println("Stored Settings:");  
+
   EEPROM.begin(3);
-  useFahrenheit = boolean(EEPROM.read(FARENHEIT_EEPROM_ADDR));  
-  showGraph = boolean(EEPROM.read(GRAPH_EEPROM_ADDR));
+  useFahrenheit = boolean(EEPROM.read(FAHRENHEIT_EEPROM_ADDR));  
+  showDebugInfo = boolean(EEPROM.read(DEBUG_EEPROM_ADDR));
   thermostatController.SetLocalMode(boolean(EEPROM.read(LOCAL_EEPROM_ADDR)));
-
   thermostatController.SetSyslogMode(true);
+  
+  Serial.print(" > Use Fahrenheit: ");  
+  Serial.println(useFahrenheit);  
+  
+  Serial.print(" > Show Debug Info: ");  
+  Serial.println(showDebugInfo);  
 
-  ArduinoOTA.setHostname("Thermostat");
+  Serial.print(" > Local Mode: ");  
+  Serial.println(thermostatController.IsInLocalMode());  
+
+  Serial.println("Initializing OTA Update..."); 
+
+  ArduinoOTA.setHostname(HOSTNAME);
   ArduinoOTA.setPassword("thermostat");
 
   ArduinoOTA.onEnd([]() 
@@ -264,8 +301,6 @@ void setup()
 
 void loop()
 {
-  ArduinoOTA.handle();
-  
   upButton.Update();
   downButton.Update();
   powerButton.Update();
@@ -276,6 +311,9 @@ void loop()
   // wait for WiFi connection
   if (WiFi.status() == WL_CONNECTED)
   {
+    ArduinoOTA.handle();
+    
+    // General checking for an error state
     if(thermostatController.GetTimeSinceLastServerResponse() > SERVER_TIMEOUT_TIME)
     {
       if(!isInTimeoutError)
@@ -322,12 +360,13 @@ void loop()
     if(isWifiConnected)
     {
       isWifiConnected = false;
-
       showStatusMessage(MESSAGE_WIFI);
     }
   }
 
   updateLED();
+
+  delay(5);
 }
 
 void onStationDisconnected(const WiFiEventStationModeDisconnected& evt) 
@@ -339,13 +378,13 @@ void tryToReconnect()
 {
   isWifiConnected = false;
   
-  USE_SERIAL.println("Disconnected from WIFI access point");
-  USE_SERIAL.println("Reconnecting...");
+  Serial.println("Disconnected from WIFI access point");
+  Serial.println("Reconnecting...");
 
   showStatusMessage("DISCONNECTED");
 
   WiFi.disconnect();
-  WiFi.begin(STASSID, STAPSK);  
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);  
 }
 
 void showStatusMessage(String message)
@@ -355,27 +394,27 @@ void showStatusMessage(String message)
 
   int16_t  x1, y1;
 
-  matrix.getTextBounds(statusMessage, 0, 0, &x1, &y1, &statusMessageWidth, &statusMessageHeight);
+  matrix.getTextBounds(statusMessage, 0, 1, &x1, &y1, &statusMessageWidth, &statusMessageHeight);
 }
 
 void upButtonLongPress()
 {
   useFahrenheit = !useFahrenheit;
 
-  EEPROM.write(FARENHEIT_EEPROM_ADDR, (byte)useFahrenheit);
+  EEPROM.write(FAHRENHEIT_EEPROM_ADDR, (byte)useFahrenheit);
   EEPROM.commit();
 
-  USE_SERIAL.print("Use Farenheit: ");
-  USE_SERIAL.println(useFahrenheit);
+  Serial.print("Use Farenheit: ");
+  Serial.println(useFahrenheit);
 }
 
 void downButtonLongPress()
 {
-  showGraph = !showGraph;
+  showDebugInfo = !showDebugInfo;
 
-  thermostatController.SetSyslogMode(showGraph);
+  thermostatController.SetSyslogMode(showDebugInfo);
 
-  EEPROM.write(GRAPH_EEPROM_ADDR, (byte)showGraph);
+  EEPROM.write(DEBUG_EEPROM_ADDR, (byte)showDebugInfo);
   EEPROM.commit();    
 }
 
@@ -394,7 +433,7 @@ void powerButtonLongPress()
     isWifiConnected = false;
   
     WiFi.disconnect();
-    WiFi.begin(STASSID, STAPSK);      
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);      
   }
 
   EEPROM.write(LOCAL_EEPROM_ADDR, (byte)thermostatController.IsInLocalMode());
@@ -498,7 +537,7 @@ void updateLED()
     }
     else
     {
-        if (showGraph && thermostatController.GetPowerState())
+        if (showDebugInfo && thermostatController.GetPowerState())
         {
           drawPulseState();
         }
@@ -536,8 +575,7 @@ bool shouldShowStatusMessage()
   else
   {
     return getStatusMessageTime() < STATUS_MESSAGE_DURATION;
-  }
-    
+  }    
 }
 
 void drawStatusMessage()
@@ -574,8 +612,6 @@ void drawPulseState()
   }
 
   matrix.drawPixel(t * totalWidth, heaterState ? 6 : 7, blinking);
-  //matrix.drawLine(0,7,(int)((pid.getPulseValue() / HEATER_RELAY_WINDOW_SIZE) * totalWidth),7,1);
-
 }
 
 void updateTemperature()
@@ -583,7 +619,11 @@ void updateTemperature()
 
   if ((millis() - lastTemperatureUpdate) > TEMPERATURE_POLL_INTERVAL)
   {
-    float currentTemperature = sensors.getTempCByIndex(0) + TEMPERATURE_ERROR_OFFSET;
+    #if DEMO_MODE
+      float currentTemperature = random(ABSOLUTE_MIN_TEMP, ABSOLUTE_MAX_TEMP);
+    #else
+      float currentTemperature = sensors.getTempCByIndex(0) + TEMPERATURE_ERROR_OFFSET;
+    #endif
 
     if (currentTemperature > MIN_VALID_TEMP)
     {
@@ -655,7 +695,6 @@ void adjustTargetTemp(int delta)
   }  
 
   setTempTime = millis();
-  
 }
 
 void toggleThermostatPower()
@@ -687,8 +726,6 @@ void toggleHeater(bool isOn)
       digitalWrite(HEATER_PIN, LOW);
     }
   }
-  
-  
 }
 
 void updateHeaterController()
@@ -707,7 +744,6 @@ void updateHeaterController()
   {
     target = (double)thermostatController.GetCurrentTemperature();
   }
-
 
   pid.run();
 
