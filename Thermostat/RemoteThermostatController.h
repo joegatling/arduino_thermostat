@@ -71,17 +71,12 @@ class RemoteThermostatController
     float _maxTemp = 30.0f;
     float _minTemp = 16.0f;
 
-    unsigned long _lastServerUpdate = 0;
     unsigned long _lastServerResponse = 0;
 
     bool _isCurrentTemperatureSetLocally = false;
     bool _isTargetTemperatureSetLocally = false;
 
     bool _shouldUseRemoteTemperature = true;
-
-    bool _shouldSendCurrentTemperature = false;
-    bool _shouldSendTargetTemperature = false;
-    bool _shouldGetData = false;
 
     bool _wasTemperatureSetRemotely = false;
     float _remoteTemperatureChangeDelta = 0;

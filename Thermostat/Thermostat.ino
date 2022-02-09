@@ -1,7 +1,6 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <ESP8266WiFi.h>
-#include <ESP8266WiFiGratuitous.h>
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
 #include <AutoPID.h>
@@ -27,8 +26,8 @@
    Wifi SSID and password.
 */
 
-#define USE_PULLUP_BUTTONS  1  // Use pullup resistors on buttons.
-#define DEMO_MODE           1  // Demo mode sends random temperatures to the server.
+#define USE_PULLUP_BUTTONS  0  // Use pullup resistors on buttons.
+#define DEMO_MODE           0  // Demo mode sends random temperatures to the server.
 
 #define TEMPERATURE_ERROR_OFFSET -1.0
 
@@ -198,6 +197,13 @@ void setup()
 
   Serial.print("Connecting to Wifi");  
 
+#ifdef USE_STATIC_IP
+  if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS)) {
+    Serial.println("STA Failed to configure");
+  }
+#endif
+
+  WiFi.mode(WIFI_STA);
   WiFi.hostname(F(HOSTNAME));
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   
@@ -224,7 +230,6 @@ void setup()
   }
 
   WiFi.setAutoReconnect(true);
-  experimental::ESP8266WiFiGratuitous::stationKeepAliveSetIntervalMs(5000); 
   WiFi.onStationModeDisconnected(&onStationDisconnected);
   isWifiConnected = false;
 

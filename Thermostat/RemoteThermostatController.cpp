@@ -1,10 +1,13 @@
 #include "RemoteThermostatController.h"
 
+#include <ESP8266WiFiGratuitous.h>
+
 #define HOST "http://joegatling.com"
 #define GET_DATA_URL HOST "/sites/temperature/get-thermostat-data.php"
 #define SET_CURRENT_TEMPERATURE_URL HOST "/sites/temperature/set-current-temperature.php"
 #define SET_TARGET_TEMPERATURE_URL HOST "/sites/temperature/set-target-temperature.php"
 
+#define MIN_SERVER_SEND_INTERVAL 2000
 #define SERVER_POLL_INTERVAL 10000
 
 #define DEVICE_HOSTNAME "thermostat"
@@ -51,38 +54,25 @@ void RemoteThermostatController::Update()
   _wasPowerSetRemotely = false;
   _remoteTemperatureChangeDelta = 0;
   
-  if((millis() - _lastServerUpdate) > SERVER_POLL_INTERVAL)
-  {
-    _shouldSendCurrentTemperature = true;
-    _shouldSendTargetTemperature = true;  
-    _shouldGetData = _isInLocalMode == false;
-
-    _lastServerUpdate = millis();
-  }  
-
   if(!IsRequestInProgress())
   {
-   if(_isSyslogOn)
+    if((millis() - _lastServerResponse) > MIN_SERVER_SEND_INTERVAL)
     {
-      syslog.log(LOG_DEBUG, "Time to sync"); 
-    }      
-    
-    // This if statement ensures we only do one of these operations each update.
-    if(_shouldSendCurrentTemperature && _isCurrentTemperatureSetLocally)
-    {
-      SendCurrentTemperatureToServer();
-      _shouldSendCurrentTemperature = false;
-    }
-    else if(_shouldSendTargetTemperature && _isTargetTemperatureSetLocally)
-    {
-      SendTargetTemperatureToServer();
-      _shouldSendTargetTemperature = false;
-    }
-    else if(_shouldGetData)
-    {
-      GetDataFromServer();
-      _shouldGetData = false;
-    }
+      if(_isCurrentTemperatureSetLocally)
+      {
+        _isCurrentTemperatureSetLocally = false;
+        SendCurrentTemperatureToServer();        
+      }
+      else if(_isTargetTemperatureSetLocally)
+      {
+        _isTargetTemperatureSetLocally = false;
+        SendTargetTemperatureToServer();
+      }
+      else if((millis() - _lastServerResponse) > SERVER_POLL_INTERVAL)
+      {
+        GetDataFromServer();
+      }
+    }    
   }
   else
   {
@@ -99,8 +89,11 @@ void RemoteThermostatController::Update()
     
 void RemoteThermostatController::SetCurrentTemperature(float celsius)
 {
-  _currentTemperature = celsius;
-  _isCurrentTemperatureSetLocally = true;
+  if(abs(_currentTemperature - celsius) > 0.05f)
+  {
+    _currentTemperature = celsius;
+    _isCurrentTemperatureSetLocally = true;
+  }
 }
 
 float RemoteThermostatController::GetCurrentTemperature()
@@ -201,6 +194,7 @@ void RemoteThermostatController::GetDataFromServer()
     if(_isSyslogOn)
     {
       syslog.log(LOG_DEBUG, "Requesting data from server."); 
+      syslog.log(LOG_DEBUG, _getDataUrl.c_str()); 
     }     
   }
 }
@@ -233,8 +227,9 @@ void RemoteThermostatController::OnRequestReadyStateChanged(void* optParm, Async
     }   
 
     _lastServerResponse = millis();
-
      _currentRequestType = NO_REQUEST;
+
+     experimental::ESP8266WiFiGratuitous::stationKeepAliveNow();
   }
 }
 
