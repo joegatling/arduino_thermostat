@@ -32,3 +32,4 @@
 *.app
 ArduinoThermostat/Configuration.h
 Thermostat/.vscode/
+Thermostat/Configuration.h
