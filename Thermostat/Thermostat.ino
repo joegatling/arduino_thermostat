@@ -371,7 +371,7 @@ void loop()
 
   updateLED();
 
-  delay(5);
+  //delay(5);
 }
 
 void onStationDisconnected(const WiFiEventStationModeDisconnected& evt) 
