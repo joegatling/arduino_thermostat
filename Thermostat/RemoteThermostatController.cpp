@@ -1,7 +1,5 @@
 #include "RemoteThermostatController.h"
 
-#include <ESP8266WiFiGratuitous.h>
-
 #define HOST "http://joegatling.com"
 #define GET_DATA_URL HOST "/sites/temperature/get-thermostat-data.php"
 #define SET_CURRENT_TEMPERATURE_URL HOST "/sites/temperature/set-current-temperature.php"
@@ -228,8 +226,6 @@ void RemoteThermostatController::OnRequestReadyStateChanged(void* optParm, Async
 
     _lastServerResponse = millis();
      _currentRequestType = NO_REQUEST;
-
-     experimental::ESP8266WiFiGratuitous::stationKeepAliveNow();
   }
 }
 
