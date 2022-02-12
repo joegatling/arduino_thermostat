@@ -162,7 +162,7 @@ void setup()
   matrix.setRotation(3);
   matrix.setBrightness(15);
   matrix.clear();
-  matrix.setCursor(0, 5);
+  matrix.setCursor(1, 5);
   matrix.print("HI!");
   matrix.writeDisplay();
 
