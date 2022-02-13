@@ -19,9 +19,7 @@
 enum ServerRequestType
 {
   NO_REQUEST,
-  SEND_CURRENT_TEMPERATURE,
-  SET_TARGET_TEMPERATURE,
-  GET_DATA
+  SYNC_DATA
 };
 
 class RemoteThermostatController
@@ -61,7 +59,7 @@ class RemoteThermostatController
 
     String _apiKey = "";
     String _thermostat = "default";
-    String _getDataUrl = "";
+    String _syncDataUrl = "";
 
     float _currentTemperature = 0;
     float _targetTemperature = 0;
@@ -92,14 +90,9 @@ class RemoteThermostatController
     ServerRequestType _currentRequestType;
 
     void OnRequestReadyStateChanged(void* optParm, AsyncHTTPRequest* request, int readyState);
-    void AsyncRequestResponseSendCurrentTemperature();
-    void AsyncRequestResponseSetTargetTemperature();
-    void AsyncRequestResponseGetData();
-
-    void SendCurrentTemperatureToServer();
-    void SendTargetTemperatureToServer();    
+    void AsyncRequestResponseSyncData();
     
-    void GetDataFromServer();
+    void SyncDataWithServer();
 
     bool IsRequestInProgress() { return _currentRequestType != NO_REQUEST; }
 };

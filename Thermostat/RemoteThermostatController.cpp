@@ -1,12 +1,10 @@
 #include "RemoteThermostatController.h"
 
 #define HOST "http://joegatling.com"
-#define GET_DATA_URL HOST "/sites/temperature/get-thermostat-data.php"
-#define SET_CURRENT_TEMPERATURE_URL HOST "/sites/temperature/set-current-temperature.php"
-#define SET_TARGET_TEMPERATURE_URL HOST "/sites/temperature/set-target-temperature.php"
+#define SYNC_DATA_URL HOST "/sites/temperature/sync.php"
 
-#define MIN_SERVER_SEND_INTERVAL 2000
-#define SERVER_POLL_INTERVAL 10000
+#define MIN_SERVER_SYNC_INTERVAL 2000
+#define MAX_SERVER_SYNC_INTERVAL 10000
 
 #define DEVICE_HOSTNAME "thermostat"
 #define APP_NAME "sync"
@@ -26,11 +24,11 @@ RemoteThermostatController::RemoteThermostatController(String key, String thermo
   _thermostat = thermostatName;
   _shouldUseRemoteTemperature = useRemoteTemperature;
 
-  _getDataUrl = String(GET_DATA_URL);
-  _getDataUrl.concat(F("?key="));
-  _getDataUrl.concat(_apiKey);
-  _getDataUrl.concat(F("&thermostat="));
-  _getDataUrl.concat(_thermostat);
+  _syncDataUrl = String(SYNC_DATA_URL);
+  _syncDataUrl.concat(F("?key="));
+  _syncDataUrl.concat(_apiKey);
+  _syncDataUrl.concat(F("&thermostat="));
+  _syncDataUrl.concat(_thermostat);
 
   _request.setDebug(false);
   _request.onReadyStateChange([=](void* optParm, AsyncHTTPRequest* request, int readyState)
@@ -39,11 +37,14 @@ RemoteThermostatController::RemoteThermostatController(String key, String thermo
   });
 
   _currentRequestType = NO_REQUEST;
+  
+  _isCurrentTemperatureSetLocally = false;
+  _isTargetTemperatureSetLocally = false; 
 
   // Assume the thermostat is off at first. This will get replaced by server data once it arrives.
   _isThermostatOn = false;
 
-  GetDataFromServer();
+  SyncDataWithServer();
 }
 
 void RemoteThermostatController::Update()
@@ -54,21 +55,15 @@ void RemoteThermostatController::Update()
   
   if(!IsRequestInProgress())
   {
-    if((millis() - _lastServerResponse) > MIN_SERVER_SEND_INTERVAL)
+    if((millis() - _lastServerResponse) > MIN_SERVER_SYNC_INTERVAL)
     {
-      if(_isCurrentTemperatureSetLocally)
+      if(_isCurrentTemperatureSetLocally || _isTargetTemperatureSetLocally)
       {
-        _isCurrentTemperatureSetLocally = false;
-        SendCurrentTemperatureToServer();        
+        SyncDataWithServer();
       }
-      else if(_isTargetTemperatureSetLocally)
+      else if((millis() - _lastServerResponse) > MAX_SERVER_SYNC_INTERVAL)
       {
-        _isTargetTemperatureSetLocally = false;
-        SendTargetTemperatureToServer();
-      }
-      else if((millis() - _lastServerResponse) > SERVER_POLL_INTERVAL)
-      {
-        GetDataFromServer();
+        SyncDataWithServer();
       }
     }    
   }
@@ -121,107 +116,53 @@ boolean RemoteThermostatController::GetPowerState()
   return _isThermostatOn;
 }
   
-void RemoteThermostatController::SendCurrentTemperatureToServer()
+
+void RemoteThermostatController::SyncDataWithServer()
 {
   if(!IsRequestInProgress())
   {
-    String url = String(SET_CURRENT_TEMPERATURE_URL);
-    url.concat(F("?key="));
-    url.concat(_apiKey);
-    url.concat(F("&c="));
-    url.concat(_currentTemperature);
-    url.concat(F("&thermostat="));
-    url.concat(_thermostat);
+    _currentRequestType = SYNC_DATA;
 
-    _currentRequestType = SEND_CURRENT_TEMPERATURE;
+    String url = String(_syncDataUrl);
 
-    if(_isSyslogOn)
+    if(_isCurrentTemperatureSetLocally)
     {
-      syslog.log(LOG_DEBUG, "Sending current data to server."); 
-      syslog.log(LOG_DEBUG, url);               
+      url.concat(F("&current_c="));
+      url.concat(_currentTemperature);    
+      
+      _isCurrentTemperatureSetLocally = false;
+    }    
+    
+    if(_isTargetTemperatureSetLocally)
+    {
+      url.concat(F("&target_c="));
+      url.concat(_targetTemperature);      
+      url.concat(F("&power="));
+      url.concat(_isThermostatOn); 
+  
+      _isTargetTemperatureSetLocally = false;     
     }
-
-    SERIAL_OUTPUT.println(F("Sending Current Temperature"));     
-       
-    _request.open("GET", url.c_str());
-    _request.send();
-  }
-}
-
-void RemoteThermostatController::SendTargetTemperatureToServer()
-{
-  if(!IsRequestInProgress())
-  {    
-    // configure traged server and url
-    String url = String(SET_TARGET_TEMPERATURE_URL);
-    url.concat(F("?key="));
-    url.concat(_apiKey);
-    url.concat(F("&c="));
-    url.concat(_targetTemperature);
-    url.concat(F("&thermostat="));
-    url.concat(_thermostat);
-    url.concat(F("&power="));
-    url.concat(_isThermostatOn);
-    
-    _currentRequestType = SET_TARGET_TEMPERATURE;
-
-    if(_isSyslogOn)
-    {
-      syslog.log(LOG_DEBUG, "Sending target temp to server."); 
-      syslog.log(LOG_DEBUG, url);               
-    }       
-
-    SERIAL_OUTPUT.println(F("Sending Target Temperature"));    
     
     _request.open("GET", url.c_str());
-    _request.send();
- 
-  }
-}
-
-void RemoteThermostatController::GetDataFromServer()
-{
-  if(!IsRequestInProgress())
-  {
-    _currentRequestType = GET_DATA;
-
-    SERIAL_OUTPUT.println(F("Get Data"));        
-    _request.open("GET", _getDataUrl.c_str());
     _request.send();   
 
+    SERIAL_OUTPUT.println(F("Sync Data"));        
     if(_isSyslogOn)
     {
-      syslog.log(LOG_DEBUG, "Requesting data from server."); 
-      syslog.log(LOG_DEBUG, _getDataUrl.c_str()); 
+      syslog.log(LOG_DEBUG, "Syncing data with server."); 
+      syslog.log(LOG_DEBUG, url.c_str()); 
     }     
   }
 }
 
 void RemoteThermostatController::OnRequestReadyStateChanged(void* optParm, AsyncHTTPRequest* request, int readyState)
 {
-//  if(_isSyslogOn)
-//  {
-//    syslog.logf(LOG_DEBUG, "Ready state changed: %d", readyState);
-//  }
-//   else
-//  {     
-//    SERIAL_OUTPUT.println(F("No Syslog")); 
-//  }
- 
   
   if(readyState == 4)
   {    
-    if(_currentRequestType == SEND_CURRENT_TEMPERATURE)
+    if(_currentRequestType == SYNC_DATA)
     {
-      AsyncRequestResponseSendCurrentTemperature();
-    }
-    else if(_currentRequestType == SET_TARGET_TEMPERATURE)
-    {
-      AsyncRequestResponseSetTargetTemperature();
-    }
-    else if(_currentRequestType == GET_DATA)
-    {
-      AsyncRequestResponseGetData();
+      AsyncRequestResponseSyncData();
     }   
 
     _lastServerResponse = millis();
@@ -229,39 +170,7 @@ void RemoteThermostatController::OnRequestReadyStateChanged(void* optParm, Async
   }
 }
 
-void RemoteThermostatController::AsyncRequestResponseSendCurrentTemperature()
-{
-    // if(_request.responseHTTPcode() == 200)
-    // {   
-    //   SERIAL_OUTPUT.print(F("Send Current Temp: "));  
-    //   SERIAL_OUTPUT.println(_request.responseText());    
-    // }
-
-    if(_isSyslogOn)
-    {
-      syslog.logf(LOG_DEBUG, "Response Code: %d", (int)_request.responseHTTPcode());
-      syslog.log(LOG_DEBUG, _request.responseText()); 
-    } 
-}
-
-
-
-void RemoteThermostatController::AsyncRequestResponseSetTargetTemperature()
-{
-    // if(_request.responseHTTPcode() == 200)
-    // {  
-    //   SERIAL_OUTPUT.print(F("Set Target Temp: "));  
-    //   SERIAL_OUTPUT.println(_request.responseText());    
-    // }
-
-    if(_isSyslogOn)
-    {
-      syslog.logf(LOG_DEBUG, "Response Code: %d", (int)_request.responseHTTPcode());
-      syslog.log(LOG_DEBUG, _request.responseText()); 
-    } 
-}
-
-void RemoteThermostatController::AsyncRequestResponseGetData()
+void RemoteThermostatController::AsyncRequestResponseSyncData()
 {
   if(_request.responseHTTPcode() == 200)
   {
@@ -339,9 +248,6 @@ void RemoteThermostatController::AsyncRequestResponseGetData()
           _minTemp = _jsonObject["thermostat"][F("min_temp")];
         }   
       }   
-
-      _isCurrentTemperatureSetLocally = false;
-      _isTargetTemperatureSetLocally = false;
     }
     else
     {
@@ -355,7 +261,5 @@ void RemoteThermostatController::AsyncRequestResponseGetData()
     {
       syslog.logf(LOG_DEBUG, "Response Code: %d", (int)_request.responseHTTPcode());
     }
-
-    
   }
 }
