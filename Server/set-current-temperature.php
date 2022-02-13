@@ -1,12 +1,6 @@
 <?php
 include_once 'common.php';
 
-// $dbUser = "nodemcu";
-// $dbPass = "netxaX-zabtej-6qucmy";
-// $dbUrl = "joegatling.powwebmysql.com";
-// $dbName = "joegatling_thermostat";
-// $table = "temperature_read";
-
 $thermostat = $defaultThermostat;
 
 $celsius = "-270";
