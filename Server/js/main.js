@@ -15,6 +15,8 @@ var minTargetTemperatureCelsius = 10.0;
 var temperatureSendTimeout = 1000.0;
 var currentTemperatureSendTimer = null;
 
+var currentMessageTimeout = null;
+
 var apiKey = "fc90b5ba-541b-43a6-a7c0-4c45bf14526d";
 
 function UpdateThermostatData()
@@ -66,6 +68,8 @@ function UpdateThermostatData()
 			UpdateTargetTemperatureText();
 			UpdateCurrentTemperatureText();
 
+      HideMessage();
+
 			$("#currentTimestamp").text(lastCurrentTemperatureTimestamp);
 		});
 	}
@@ -98,17 +102,6 @@ function UpdateCurrentTemperatureText()
 		$("#currentTempValue").text(Math.round(Number(currentTemperature)));
 		$("#currentTempSymbol").text("C");
 	}
-
-	if(isThermostatOn == true)
-	{
-		$("#setTemp").show();
-		$("#heaterOff").hide();
-	}
-	else
-	{
-		$("#setTemp").hide();
-		$("#heaterOff").show();
-	}	
 }
 
 function SendTargetTemperatureToServer()
@@ -203,6 +196,15 @@ function TogglePower()
 {
 	isThermostatOn = !isThermostatOn;
 
+  if(isThermostatOn)
+  {
+    ShowMessage("ON");
+  }
+  else
+  {
+    ShowMessage("OFF");
+  }
+
 	UpdateCurrentTemperatureText();
 
 	if(currentTemperatureSendTimer != null)
@@ -211,6 +213,40 @@ function TogglePower()
 	}
 
 	currentTemperatureSendTimer = setTimeout(function() { SendTargetTemperatureToServer(); currentTemperatureSendTimer = null;}, temperatureSendTimeout);
+}
+
+function ShowMessage(message)
+{
+  $("#message").text(message);
+
+  $("#setTemp").hide();
+  $("#currentTemp").hide();
+  $("#message").show();
+
+  if(currentMessageTimeout != null)
+  {
+    clearTimeout(currentMessageTimeout);
+  }
+
+  currentMessageTimeout = setTimeout(function() { HideMessage(); }, 1000);
+}
+
+function HideMessage()
+{
+	if(isThermostatOn == true)
+	{
+		$("#setTemp").show();
+    $("#currentTemp").hide();
+	}
+	else
+	{
+		$("#setTemp").hide();
+    $("#currentTemp").show();
+	}	
+
+  $("#message").hide();
+
+  currentMessageTimeout = null;
 }
 
 function SetTemperatureToFahrenheit(f)

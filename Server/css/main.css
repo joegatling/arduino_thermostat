@@ -116,7 +116,10 @@ textarea {
     grid-row-gap: 8px;     */
 }
   
-  
+.initiallyHidden
+{
+    display: none;
+}
 
 #infoCard
 {
@@ -152,11 +155,11 @@ textarea {
 
 .currentTemp
 {
-	font-size: 18px;
+  font-size: 8vmin;
 	margin: 0;
-    padding: 0;
-    text-align: left;
-    color: #000000;
+  padding: 0;
+  text-align: left;
+  color: #916301;
 }
 
 .setTemp
@@ -164,11 +167,11 @@ textarea {
 	font-size: 8vmin;
 	margin: 0;
 	padding: 0;
-    text-align: left;
-    color: #000000;
+  text-align: left;
+  color: #000000;
 }
 
-.heaterOff
+.message
 {
 	font-size: 18vmin;
 	margin: 0;
@@ -183,24 +186,12 @@ textarea {
     display: none;
 }
 
-#currentTempValue
+#currentTempValue, #setTempValue
 {
-    font-size: 15vmin;
-    font-weight: 900;
-    display: none;
-}
-
-#currentTempSymbol
-{
-    display: none;
-}
-
-
-#setTempValue
-{
-    font-size: 15vmin;
+    font-size: 24vmin;
     font-weight: 900;
 }
+
 
 .currentTimestamp, .formatToggle
 {
