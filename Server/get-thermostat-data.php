@@ -42,7 +42,7 @@ $mysqli->query($query);
 
 if($privileges->CanReadCurrent())
 {
-	$query = "SELECT timestamp, celsius FROM $tableCurrentTemperature WHERE thermostat = '$thermostat' ORDER BY timestamp DESC LIMIT 1;";
+	$query = "SELECT timestamp, celsius, CURRENT_TIMESTAMP as 'now' FROM $tableCurrentTemperature WHERE thermostat = '$thermostat' ORDER BY timestamp DESC LIMIT 1;";
 
 	if($result = $mysqli->query($query))
 	{
