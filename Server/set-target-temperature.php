@@ -2,6 +2,7 @@
 include_once 'common.php';
 
 $user = "defaultUser";
+$origin = "web";
 
 $thermostat = $defaultThermostat;
 $celsius = "-270";
@@ -47,6 +48,11 @@ if(isset($_GET['power']))
 	$isThermostatOn = $_GET['power'];
 }
 
+if(isset($_GET['origin']))
+{
+	$origin = $_GET['origin'];
+}
+
 if(isset($_GET['thermostat']))
 {
 	$thermostat = $_GET['thermostat'];
@@ -72,7 +78,7 @@ if($result == "OK")
 		}		
 
 		$timestamp = time();
-		$query = "INSERT INTO $tableTargetTemperature (thermostat, user, celsius, power) VALUES('$thermostat', '$user', $celsius, $isThermostatOn)";
+		$query = "INSERT INTO $tableTargetTemperature (thermostat, user, celsius, power, origin) VALUES('$thermostat', '$user', $celsius, $isThermostatOn, '$origin')";
 		$mysqli->query($query);
 
 		$mysqli->close();

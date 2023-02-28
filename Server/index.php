@@ -37,9 +37,9 @@ if(isset($_GET['zone']))
                 <div id="content">
                     <div id="infoCard">                        
                         <p id="loading">Loading...</p>
-                        <p class="heaterOff showAfterLoading" id="heaterOff">OFF</p>
+                        <!-- <p class="heaterOff showAfterLoading" id="heaterOff">OFF</p> -->
                         <p class="setTemp showAfterLoading" id="setTemp"><span id="setTempValue">24</span><span id="setTempSymbol">C</span></p>
-                        <p class="currentTemp showAfterLoading"><span id="currentTempValue">24</span><span id="currentTempSymbol">C</span></p>
+                        <p class="currentTemp showAfterLoading"  id="heaterOff"><span id="currentTempValue">24</span><span id="currentTempSymbol">C</span></p>
                         <!-- <p class="currentTempAlt showAfterLoading"><span id="currentTempAltValue">75</span>F</p> -->
                     </div>
                     <a id="togglePower" class="controlButton" href="#" alt="Power"><span>Power</span></a>

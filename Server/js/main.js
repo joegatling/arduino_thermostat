@@ -55,6 +55,7 @@ function UpdateThermostatData()
 
 			lastTargetTemperatureTimestamp = jsonData.target.timestamp;
 			isThermostatOn = jsonData.target.power > 0;
+			currentTimestamp = jsonData.current.now;
 
 			maxTargetTemperatureCelsius = jsonData.thermostat.max_temp;
 			minTargetTemperatureCelsius = jsonData.thermostat.min_temp;
@@ -66,10 +67,42 @@ function UpdateThermostatData()
 			UpdateTargetTemperatureText();
 			UpdateCurrentTemperatureText();
 
-			$("#currentTimestamp").text(lastCurrentTemperatureTimestamp);
+			$("#currentTimestamp").text("Updated " + getTimeDiffString(lastCurrentTemperatureTimestamp, currentTimestamp) + ".");
 		});
 	}
 }
+
+function getTimeDiffString(timestamp1, timestamp2) 
+{
+	const date1 = new Date(timestamp1);
+	const date2 = new Date(timestamp2);
+	const diffMillis = Math.abs(date1.getTime() - date2.getTime());
+
+	console.log("timestamp 1: " + timestamp1);
+	console.log("timestamp 2: " + timestamp2);
+	console.log(diffMillis);
+  
+	const timeUnits = [
+	  { unit: "second", millis: 1000 },	
+	  { unit: "minute", millis: 60 * 1000 },
+	  { unit: "hour", millis: 60 * 60 * 1000 },
+	  { unit: "day", millis: 24 * 60 * 60 * 1000 },
+	  { unit: "week", millis: 7 * 24 * 60 * 60 * 1000 },
+	  { unit: "month", millis: 30 * 24 * 60 * 60 * 1000 },
+	  { unit: "year", millis: 365 * 24 * 60 * 60 * 1000 },
+	];
+  
+	for (let i = 0; i < timeUnits.length; i++) {
+	  const unit = timeUnits[i];
+	  const nextUnit = timeUnits[i+1];
+	  if (diffMillis < nextUnit.millis) {
+		const count = Math.floor(diffMillis / unit.millis);
+		return count === 1 ? `${count} ${unit.unit} ago` : `${count} ${unit.unit}s ago`;
+	  }
+	}
+  
+	return "unknown time ago";
+  }
 
 function UpdateTargetTemperatureText()
 {
