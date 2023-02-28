@@ -7,6 +7,12 @@ if(isset($_GET['thermostat']))
 	$thermostat = mysqli_real_escape_string($_GET['thermostat']);
 }
 
+$count = 5
+if(isset($_GET['count']))
+{
+	$count = mysqli_real_escape_string($_GET['count']);
+}
+
 $mysqli = new mysqli($dbUrl, $dbUser, $dbPass, $dbName);
 
 if ($mysqli->connect_error) {
@@ -19,7 +25,7 @@ $thermostatInfo = GetThermostatInfo($thermostat);
 $timezone = $thermostatInfo['time_zone'];
 
 $query = "SET time_zone = '$timezone';";	
-$query .= "SELECT timestamp, celsius FROM $tableTargetTemperature ORDER BY timestamp DESC LIMIT 1;";
+$query .= "SELECT timestamp, celsius, origin FROM $tableTargetTemperature ORDER BY timestamp DESC LIMIT 1;";
 
 $data = array();
 

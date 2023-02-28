@@ -10,7 +10,7 @@ $api_key = "";
 
 if(isset($_GET['c']))
 {
-	$celsius = $_GET['c'];
+	$celsius = mysqli_real_escape_string($_GET['c']);
 }
 else if(isset($_GET['f']))
 {
@@ -23,7 +23,7 @@ else
 
 if(isset($_GET['key']))
 {
-	$api_key = $_GET['key'];	
+	$api_key = mysqli_real_escape_string($_GET['key']);	
 }
 else
 {
@@ -32,7 +32,7 @@ else
 
 if(isset($_GET['thermostat']))
 {
-	$thermostat = $_GET['thermostat'];
+	$thermostat = mysqli_real_escape_string($_GET['thermostat']);
 }
 
 

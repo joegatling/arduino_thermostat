@@ -8,7 +8,7 @@ $timestamp = 0;
 
 if(isset($_GET['thermostat']))
 {
-	$thermostat = $_GET['thermostat'];
+	$thermostat = mysqli_real_escape_string($_GET['thermostat']);
 }
 
 $timezoneoffset=0;

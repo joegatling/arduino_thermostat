@@ -4,7 +4,7 @@ include_once 'common.php';
 $thermostat = "default";
 if(isset($_GET['thermostat']))
 {
-	$thermostat = $_GET['thermostat'];
+	$thermostat = mysqli_real_escape_string($_GET['thermostat']);
 }
 
 $mysqli = new mysqli($dbUrl, $dbUser, $dbPass, $dbName);
