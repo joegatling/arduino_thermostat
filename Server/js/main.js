@@ -81,6 +81,11 @@ function getTimeDiffString(timestamp1, timestamp2)
 	console.log("timestamp 1: " + timestamp1);
 	console.log("timestamp 2: " + timestamp2);
 	console.log(diffMillis);
+
+	if(diffMillis < 1000)
+	{
+		return "just now";
+	}
   
 	const timeUnits = [
 	  { unit: "second", millis: 1000 },	
