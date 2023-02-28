@@ -8,7 +8,7 @@ $timestamp = 0;
 
 if(isset($_GET['thermostat']))
 {
-	$thermostat = mysqli_real_escape_string($_GET['thermostat']);
+	$thermostat = $_GET['thermostat'];
 }
 
 $timezoneoffset=0;
@@ -18,6 +18,9 @@ $mysqli = new mysqli($dbUrl, $dbUser, $dbPass, $dbName);
 if ($mysqli->connect_error) {
 	die('Connect Error (' . $mysqli->connect_errno . ') ' . $mysqli->connect_error);
 }		
+
+$thermostat = mysqli_real_escape_string($mysqli, $thermostat);
+
 
 $thermostatInfo = GetThermostatInfo($thermostat);
 

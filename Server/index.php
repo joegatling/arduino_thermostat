@@ -45,6 +45,10 @@ if(isset($_GET['zone']))
                     <a id="togglePower" class="controlButton" href="#" alt="Power"><span>Power</span></a>
                     <a id="decreaseTemp" class="controlButton" href="#" alt="Decrease Temperature"><span>-</span></a>
                     <a id="increaseTemp" class="controlButton" href="#" alt="Increase Temperature"><span>+</span></a>
+                    <!-- <div id="history">
+                        <p class="history showAfterLoading" id="historyEntry">No History</p>
+                    </div> -->
+
                     <div id="optionsCard">
                         <p class="currentTimestamp showAfterLoading" id="currentTimestamp">Updated moments ago</p>
                         <p class="formatToggle showAfterLoading" id="temperatureFormat">

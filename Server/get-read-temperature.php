@@ -4,7 +4,7 @@ include_once 'common.php';
 $thermostat = "default";
 if(isset($_GET['thermostat']))
 {
-	$thermostat = mysqli_real_escape_string($_GET['thermostat']);
+	$thermostat = $_GET['thermostat'];
 }
 
 $mysqli = new mysqli($dbUrl, $dbUser, $dbPass, $dbName);
@@ -12,6 +12,8 @@ $mysqli = new mysqli($dbUrl, $dbUser, $dbPass, $dbName);
 if ($mysqli->connect_error) {
 	die('Connect Error (' . $mysqli->connect_errno . ') ' . $mysqli->connect_error);
 }		
+
+$thermostat = mysqli_real_escape_string($mysqli, $thermostat);
 
 $currentTemp = 0;
 

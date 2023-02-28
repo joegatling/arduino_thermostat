@@ -150,21 +150,21 @@ textarea {
     font-family: 'Roboto', sans-serif;
 }
 
-.currentTemp
+.currentTemp, .setTemp
 {
-	font-size: 18px;
+	font-size: 8vmin;
 	margin: 0;
     padding: 0;
     text-align: left;
-    color: #000000;
+}
+
+.currentTemp
+{
+    color: #9e6c00;
 }
 
 .setTemp
 {
-	font-size: 8vmin;
-	margin: 0;
-	padding: 0;
-    text-align: left;
     color: #000000;
 }
 
@@ -183,24 +183,12 @@ textarea {
     display: none;
 }
 
-#currentTempValue
+#currentTempValue, #setTempValue
 {
-    font-size: 15vmin;
-    font-weight: 900;
-    display: none;
-}
-
-#currentTempSymbol
-{
-    display: none;
-}
-
-
-#setTempValue
-{
-    font-size: 15vmin;
+    font-size: 24vmin;
     font-weight: 900;
 }
+
 
 .currentTimestamp, .formatToggle
 {

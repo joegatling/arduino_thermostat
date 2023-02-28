@@ -10,7 +10,7 @@ $api_key = "";
 
 if(isset($_GET['c']))
 {
-	$celsius = mysqli_real_escape_string($_GET['c']);
+	$celsius = $_GET['c'];
 }
 else if(isset($_GET['f']))
 {
@@ -23,7 +23,7 @@ else
 
 if(isset($_GET['key']))
 {
-	$api_key = mysqli_real_escape_string($_GET['key']);	
+	$api_key = $_GET['key'];	
 }
 else
 {
@@ -32,7 +32,7 @@ else
 
 if(isset($_GET['thermostat']))
 {
-	$thermostat = mysqli_real_escape_string($_GET['thermostat']);
+	$thermostat = $_GET['thermostat'];
 }
 
 
@@ -48,6 +48,11 @@ if($result == "OK")
 	if($privileges->CanWriteCurrent())
 	{
 		$mysqli = new mysqli($dbUrl, $dbUser, $dbPass, $dbName);
+
+		$celsius = mysqli_real_escape_string($mysqli, $celsius);
+		$api_key = mysqli_real_escape_string($mysqli, $api_key);
+		$thermostat = mysqli_real_escape_string($mysqli, $thermostat);
+		
 
 		$query = "INSERT INTO $tableCurrentTemperature (thermostat, celsius) VALUES('$thermostat', $celsius)";
 
