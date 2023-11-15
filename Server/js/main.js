@@ -67,8 +67,35 @@ function UpdateThermostatData()
 			UpdateTargetTemperatureText();
 			UpdateCurrentTemperatureText();
 
-			$("#currentTimestamp").text("Updated " + getTimeDiffString(lastCurrentTemperatureTimestamp, currentTimestamp) + ".");
+			$("#currentTimestamp").text("Updated " + getTimeDiffString(lastCurrentTemperatureTimestamp, currentTimestamp) + ".");t
 		});
+
+		$.getJSON('get-set-history.php', {thermostat: thermostat, count: 6}, function(jsonData) 
+		{	
+			$("#history").innerHTML = '';	
+			
+			var historyArray = jsonData.history;
+
+			if(historyArray.length > 1)
+			{
+				for(var i = hostoryArray.length-2; i >= 0; i--)
+				{
+					var didTurnOn = historyArray[i].power == true && historyArray[i+1] == false;
+					var didTurnOff = historyArray[i].power == false && historyArray[i+1] == true;
+
+					const timestamp = new Date(historyArray[i].timestamp);
+
+					let item = $("#history").createElement("p");
+					
+					if(didTurnOn)
+					{
+						
+						item.text = timestamp.
+					}
+
+				}		
+			}	
+		});		
 	}
 }
 

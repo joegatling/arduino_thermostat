@@ -176,12 +176,12 @@ void RemoteThermostatController::AsyncRequestResponseSyncData()
   {
     const String& payload = _request.responseText();
     
-    SERIAL_OUTPUT.println(F("Thermostat Data:"));
+    SERIAL_OUTPUT.println(F("Received Thermostat Data:"));
     SERIAL_OUTPUT.println(payload);
 
     if(_isSyslogOn)
     {
-      syslog.log(LOG_DEBUG, "Thermostat Data:"); 
+      syslog.log(LOG_DEBUG, "Receieved Thermostat Data:"); 
       syslog.log(LOG_DEBUG, payload);               
     }
     else
