@@ -4,7 +4,12 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
-#include <ESP8266WiFi.h> 
+
+#if NODE_MCU
+  #include <ESP8266WiFi.h> 
+#else
+  #include <WiFi.h>
+#endif
 
 #include <WiFiUdp.h>
 #include <Syslog.h>
