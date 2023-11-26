@@ -3,15 +3,14 @@
 
 // Rename this file 'Configuration.h' and update this information with your information.
 
-#define API_KEY "2b187604-9d32-4047-8028-6185fbc7a1be"
-#define THERMOSTAT_NAME "beachwood"
+#define API_KEY "your-key-here"
+#define THERMOSTAT_NAME "thermostat name here"
 
 // Wifi SSID and Password:
-#define WIFI_SSID "Blueregard" 
-#define WIFI_PASSWORD  "3234700345"
+#define WIFI_SSID "Your Wifi SSID" 
+#define WIFI_PASSWORD  "Your Wifi Password"
 
 #define HOSTNAME "Thermostat"
-
-#define OTA_PASSWORD "thermostat"
+#define OTA_PASSWORD "OTA password here"
 
 #endif
