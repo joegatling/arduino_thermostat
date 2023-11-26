@@ -270,7 +270,7 @@ bool shouldShowStatusMessage()
   }
   else if(statusMessageWidth > 16)
   {
-    return getStatusMessageTime() < (STATUS_MESSAGE_SCROLL_DELAY * 2 + statusMessageWidth * STATUS_MESSAGE_SCROLL_STEP / DISPLAY_SCALE);
+    return getStatusMessageTime() < (unsigned long)(STATUS_MESSAGE_SCROLL_DELAY * 2 + statusMessageWidth * STATUS_MESSAGE_SCROLL_STEP / DISPLAY_SCALE);
   }
   else
   {

@@ -79,6 +79,9 @@ class RemoteThermostatController
     bool _isCurrentTemperatureSetLocally = false;
     bool _isTargetTemperatureSetLocally = false;
 
+    bool _hasSentCurrentTemperature = false;
+    bool _hasSentTargetTemperature = false;
+
     bool _shouldUseRemoteTemperature = true;
 
     bool _wasTemperatureSetRemotely = false;

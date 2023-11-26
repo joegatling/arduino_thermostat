@@ -41,6 +41,9 @@ RemoteThermostatController::RemoteThermostatController(String key, String thermo
   _isCurrentTemperatureSetLocally = false;
   _isTargetTemperatureSetLocally = false; 
 
+  _hasSentCurrentTemperature = false;
+  _hasSentTargetTemperature = false;
+
   // Assume the thermostat is off at first. This will get replaced by server data once it arrives.
   _isThermostatOn = false;
 
@@ -130,7 +133,8 @@ void RemoteThermostatController::SyncDataWithServer()
       url.concat(F("&current_c="));
       url.concat(_currentTemperature);    
       
-      _isCurrentTemperatureSetLocally = false;
+      //_isCurrentTemperatureSetLocally = false;
+      _hasSentCurrentTemperature = true;
     }    
     
     if(_isTargetTemperatureSetLocally)
@@ -140,7 +144,8 @@ void RemoteThermostatController::SyncDataWithServer()
       url.concat(F("&power="));
       url.concat(_isThermostatOn); 
   
-      _isTargetTemperatureSetLocally = false;     
+      //_isTargetTemperatureSetLocally = false;  
+      _hasSentTargetTemperature = true;   
     }
     
     _request.open("GET", url.c_str());
@@ -235,6 +240,18 @@ void RemoteThermostatController::AsyncRequestResponseSyncData()
           SERIAL_OUTPUT.print("Is Thermostat On: ");
           SERIAL_OUTPUT.println(_isThermostatOn  );          
         }        
+      }
+
+      if(_hasSentTargetTemperature)
+      {
+        _isTargetTemperatureSetLocally = false;
+        _hasSentTargetTemperature = false;
+      }
+      
+      if(_hasSentCurrentTemperature)
+      {
+        _isCurrentTemperatureSetLocally = false;
+        _hasSentCurrentTemperature = false;
       }
 
       if(_jsonObject.containsKey("thermostat"))
