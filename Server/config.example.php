@@ -1,6 +1,8 @@
 <?php
-$dbUser = "nodemcu";
-$dbPass = "netxaX-zabtej-6qucmy";
+/* Fill in this information */
+$dbUser = "username";
+$dbPass = "password";
+
 $dbUrl = "joegatling.powwebmysql.com";
 $dbName = "joegatling_thermostat";
 

@@ -35,3 +35,4 @@ Thermostat/.vscode/
 Thermostat/Configuration.h
 .DS_Store
 Thermostat/include/Configuration.h
+Server/config.php
