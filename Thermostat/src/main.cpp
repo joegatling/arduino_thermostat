@@ -372,11 +372,11 @@ void updateNeoPixel()
     }
     else
     {
-      const float pulseTime = 500.0f;
+      const float pulseTime = 800.0f;
       if(thermostatController.GetTimeSinceLastServerResponse() < pulseTime)
       {
         float t = (1.0f - (thermostatController.GetTimeSinceLastServerResponse() / pulseTime));
-        pixel.fill(pixel.Color(64 * t, 64 * t, 0));
+        pixel.fill(pixel.Color(8 * t, 8 * t, 0));
         pixel.show();
       }
       else

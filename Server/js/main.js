@@ -432,11 +432,15 @@ function DrawChart()
 					data: {
 						labels: jsonData.labels,
 						datasets: [{
-						label: 'Recorded Temperature',
+						label: 'Temperature',
 						data: jsonData.temps,
-						borderWidth: 5 / window.devicePixelRatio,
+						borderWidth: 3 / window.devicePixelRatio,
 						tension: 0.2,
-						pointStyle: false,
+						pointStyle: 'circle',
+						pointRadius: jsonData.temps.map((_, index) => 
+							index === jsonData.temps.length - 1 ? 4 / window.devicePixelRatio : 0 // Only the last point is visible
+						),
+						pointBackgroundColor: '#ffefaa',
 						borderCapStyle: 'round',
 						//borderColor: '#ffd600'
 						borderColor: function(context) {
@@ -451,9 +455,9 @@ function DrawChart()
 						  }
 		
 					},{
-						label: 'Set Temperature',
+						label: 'Set',
 						data: jsonData.sets,
-						borderWidth: 5  / window.devicePixelRatio,
+						borderWidth: 3  / window.devicePixelRatio,
 						tension: 0.0,
 						pointStyle: false,
 						borderDash: [4, 4],
@@ -484,8 +488,43 @@ function DrawChart()
 					y: {
 						display: false,
 					}
+					},
+					layout: {
+						padding: {
+							right: 20
+						}
+					}					
+				},
+				plugins: [
+					{
+						id: 'finalValuePlugin',
+						afterDatasetDraw(chart) {
+							const { ctx, chartArea, data } = chart;
+							const dataset = data.datasets[0]; // Assume single dataset
+							const meta = chart.getDatasetMeta(0); // Meta for the first dataset
+			
+							// Find the final point
+							const lastIndex = dataset.data.length - 1;
+							const lastPoint = meta.data[lastIndex]; // Element for the last point
+							const value = Math.round(dataset.data[lastIndex]); // Value of the last data point
+			
+							if (lastPoint) {
+								ctx.save();
+								ctx.font = '8px Roboto'; // Customize font size and style
+								ctx.fillStyle = '#ffefaa'; // Match point color
+								ctx.textAlign = 'left';
+
+								ctx.fillText(value, lastPoint.x + 8/window.devicePixelRatio, lastPoint.y + 4/window.devicePixelRatio); // Position above the final point
+								ctx.restore();
+							}
+						}
 					}
-				}});			
+				]});
+				
+				const chartElement = document.getElementById('temperatureChart');
+				setTimeout(() => {
+					chartElement.style.opacity = 1; // Make the element fully visible
+				}, 1);
 			}
 		},
 		error: function(xhr, status, error) {
