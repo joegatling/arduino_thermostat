@@ -17,6 +17,8 @@ var currentTemperatureSendTimer = null;
 
 var apiKey = "fc90b5ba-541b-43a6-a7c0-4c45bf14526d";
 
+var chart = null;
+
 function UpdateThermostatData()
 {
 	if(currentTemperatureSendTimer == null)
@@ -67,35 +69,35 @@ function UpdateThermostatData()
 			UpdateTargetTemperatureText();
 			UpdateCurrentTemperatureText();
 
-			$("#currentTimestamp").text("Updated " + getTimeDiffString(lastCurrentTemperatureTimestamp, currentTimestamp) + ".");t
+			$("#currentTimestamp").text("Updated " + getTimeDiffString(lastCurrentTemperatureTimestamp, currentTimestamp) + ".");
 		});
 
-		$.getJSON('get-set-history.php', {thermostat: thermostat, count: 6}, function(jsonData) 
-		{	
-			$("#history").innerHTML = '';	
+		// $.getJSON('get-set-history.php', {thermostat: thermostat, count: 6}, function(jsonData) 
+		// {	
+		// 	$("#history").innerHTML = '';	
 			
-			var historyArray = jsonData.history;
+		// 	var historyArray = jsonData.history;
 
-			if(historyArray.length > 1)
-			{
-				for(var i = hostoryArray.length-2; i >= 0; i--)
-				{
-					var didTurnOn = historyArray[i].power == true && historyArray[i+1] == false;
-					var didTurnOff = historyArray[i].power == false && historyArray[i+1] == true;
+		// 	if(historyArray.length > 1)
+		// 	{
+		// 		for(var i = hostoryArray.length-2; i >= 0; i--)
+		// 		{
+		// 			var didTurnOn = historyArray[i].power == true && historyArray[i+1] == false;
+		// 			var didTurnOff = historyArray[i].power == false && historyArray[i+1] == true;
 
-					const timestamp = new Date(historyArray[i].timestamp);
+		// 			const timestamp = new Date(historyArray[i].timestamp);
 
-					let item = $("#history").createElement("p");
+		// 			let item = $("#history").createElement("p");
 					
-					if(didTurnOn)
-					{
+		// 			if(didTurnOn)
+		// 			{
 						
-						item.text = timestamp.
-					}
+		// 				item.text = timestamp.
+		// 			}
 
-				}		
-			}	
-		});		
+		// 		}		
+		// 	}	
+		// });		
 	}
 }
 
@@ -341,4 +343,157 @@ function ReadCookieData()
 		}
 		}	
 	}
+}
+
+let width, height, gradient, setGradient
+function getGradient(ctx, chartArea) {
+	const chartWidth = chartArea.right - chartArea.left;
+	const chartHeight = chartArea.bottom - chartArea.top;
+	if (!gradient || width !== chartWidth || height !== chartHeight) {
+	  // Create the gradient because this is either the first render
+	  // or the size of the chart has changed
+	  width = chartWidth;
+	  height = chartHeight;
+	  gradient = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
+	  gradient.addColorStop(1, '#ffefaa');
+	  gradient.addColorStop(0.9, '#e8b200');
+	  gradient.addColorStop(0.2, '#e8b200');
+	  gradient.addColorStop(0, '#d18e00');
+	}
+  
+	return gradient;
+  }
+
+  function getSetGradient(ctx, chartArea) {
+	const chartWidth = chartArea.right - chartArea.left;
+	const chartHeight = chartArea.bottom - chartArea.top;
+	if (!setGradient || width !== chartWidth || height !== chartHeight) {
+	  // Create the gradient because this is either the first render
+	  // or the size of the chart has changed
+	  width = chartWidth;
+	  height = chartHeight;
+	  setGradient = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
+	  setGradient.addColorStop(1, '#b47c00');
+	  setGradient.addColorStop(0.5, '#b47c00');
+	  setGradient.addColorStop(0, '#d18e00');
+	}
+  
+	return setGradient;
+  }  
+
+function DrawChart() 
+{
+    const queryString = window.location.search;
+
+    // Create a URLSearchParams object
+    const params = new URLSearchParams(queryString);
+
+    var interval = 12;
+    // Access individual query parameters
+    // Check if a parameter exists
+    if (params.has("interval")) {
+        interval = params.get("interval");
+    }
+
+    // Iterate through all parameters
+    for (const [key, value] of params) {
+        console.log(`${key}: ${value}`);
+    }
+
+    $.ajax({
+        url: "get-data-new.php",
+        dataType: "json",
+        // async: false,
+        data: {
+            interval: interval,
+			unit: (useFahrenheit ? "f" : "c")
+        },
+		success: function(jsonData) {
+			//var jsonData = JSON.parse(data);
+
+			if(chart != null)
+			{
+				chart.data.labels = jsonData.labels;
+				chart.data.datasets[0].data = jsonData.temps;
+				chart.data.datasets[1].data = jsonData.sets;
+				chart.update();
+
+				console.log("Updated chart data.");
+			}
+			else
+			{
+				const ctx = document.getElementById('temperatureChart').getContext('2d');
+
+				const devicePixelRatio = window.devicePixelRatio || 1;
+				ctx.scale(devicePixelRatio, devicePixelRatio);
+
+				chart = new Chart(ctx, {
+				type: 'line',
+					data: {
+						labels: jsonData.labels,
+						datasets: [{
+						label: 'Recorded Temperature',
+						data: jsonData.temps,
+						borderWidth: 5 / window.devicePixelRatio,
+						tension: 0.2,
+						pointStyle: false,
+						borderCapStyle: 'round',
+						//borderColor: '#ffd600'
+						borderColor: function(context) {
+							const chart = context.chart;
+							const {ctx, chartArea} = chart;
+					
+							if (!chartArea) {
+							  // This case happens on initial chart load
+							  return;
+							}
+							return getGradient(ctx, chartArea);
+						  }
+		
+					},{
+						label: 'Set Temperature',
+						data: jsonData.sets,
+						borderWidth: 5  / window.devicePixelRatio,
+						tension: 0.0,
+						pointStyle: false,
+						borderDash: [4, 4],
+						//borderColor: '#423100'
+						borderColor: function(context) {
+							const chart = context.chart;
+							const {ctx, chartArea} = chart;
+					
+							if (!chartArea) {
+							  // This case happens on initial chart load
+							  return;
+							}
+							return getSetGradient(ctx, chartArea);
+						  }
+					}]
+				},
+				options: {
+					animation: false,
+					plugins: {
+					legend: {
+						display: false
+					}                
+					},
+					scales: {
+					x: {
+						display: false,
+					},
+					y: {
+						display: false,
+					}
+					}
+				}});			
+			}
+		},
+		error: function(xhr, status, error) {
+			console.error("Error: ", status, error);
+		}
+	});
+
+
+
+        
 }

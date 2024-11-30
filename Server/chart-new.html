@@ -1,0 +1,105 @@
+<html>
+  <head>
+    <!--Load the AJAX API-->
+    <!-- <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script> -->
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> 
+    
+    <script type="text/javascript">        
+      function drawChart() {
+        const queryString = window.location.search;
+
+        // Create a URLSearchParams object
+        const params = new URLSearchParams(queryString);
+
+        var interval = 24;
+        var unit = "c";
+        // Access individual query parameters
+        // Check if a parameter exists
+        if (params.has("interval")) {
+            interval = params.get("interval");
+        }
+
+        if(params.has("unit")) {
+            unit = params.get("unit");
+        }
+
+        // Iterate through all parameters
+        for (const [key, value] of params) {
+            console.log(`${key}: ${value}`);
+        }
+
+        var jsonData = JSON.parse($.ajax({
+            url: "get-data-new.php",
+            dataType: "json",
+            async: false,
+            data: {
+                interval: interval,
+                unit: unit
+            }}).responseText);
+
+
+
+          const ctx = document.getElementById('temperatureChart');
+  
+          new Chart(ctx, {
+            type: 'line',
+                data: {
+                  labels: jsonData.labels,
+                  datasets: [{
+                    label: 'Temperature History',
+                    data: jsonData.temps,
+                    borderWidth: 3,
+                    tension: 0.1,
+                    pointStyle: false,
+                    borderCapStyle: 'round'
+
+                },{
+                    label: 'Temperature History',
+                    data: jsonData.sets,
+                    borderWidth: 1,
+                    tension: 0.0,
+                    pointStyle: false,
+                    borderDash: [5, 5]
+                }]
+            },
+            options: {
+              plugins: {
+                legend: {
+                  display: false
+                }                
+              },
+              scales: {
+                x: {
+                  display: false,
+                },
+                y: {
+                  display: false,
+                }
+              }
+            }
+          });
+        };
+  
+        $(document).ready(function () 
+        {
+            drawChart();
+        });
+      </script>     
+
+    <style>
+    #chart_div 
+    {
+        width: 100%;
+        height: 100%;
+    }
+    </style>
+  </head>
+
+  <body>
+    <!--Div that will hold the pie chart-->
+    <div id="chart_div"><canvas id="temperatureChart"></canvas></div>
+  </body>
+
+  
+</html>

@@ -30,7 +30,6 @@ if(isset($_GET['zone']))
         <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">     
 
         <script src="js/vendor/modernizr-2.6.2-respond-1.1.0.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>         
     </head>
     <body>
         <!--[if lt IE 7]>
@@ -62,9 +61,6 @@ if(isset($_GET['zone']))
                         </p>
                     </div>
                 </div>
-                <div id="graphCard">
-                  <canvas id="temperatureChart"></canvas>
-                </div>                  
             </div>
         </div>
 
@@ -72,7 +68,6 @@ if(isset($_GET['zone']))
         <script>window.jQuery || document.write('<script src="js/vendor/jquery-1.10.1.min.js"><\/script>')</script>
 
         <script src="js/main.js"></script>
-        <script src="js/graph.js"></script>
         
         <script>
             $("#loading").show();
@@ -102,10 +97,6 @@ if(isset($_GET['zone']))
 
                 $("#fahrenheitToggle").click(function(e) {e.preventDefault(); SetTemperatureToFahrenheit(true); return false; });
                 $("#celsiusToggle").click(function(e) {e.preventDefault(); SetTemperatureToFahrenheit(false); return false; });
-
-                DrawChart();
-                setInterval(DrawChart, 120000);
-
 			});        	
         </script>
 

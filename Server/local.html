@@ -1,13 +1,5 @@
 <!DOCTYPE html>
 
-<?php
-include_once 'config.php';
-
-if(isset($_GET['zone']))
-{
-	$zoneId = $_GET['zone'];
-}
-?>
 
 <!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
 <!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
@@ -30,7 +22,7 @@ if(isset($_GET['zone']))
         <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">     
 
         <script src="js/vendor/modernizr-2.6.2-respond-1.1.0.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>         
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>        
     </head>
     <body>
         <!--[if lt IE 7]>
@@ -41,7 +33,7 @@ if(isset($_GET['zone']))
             <div id="square">
                 <div id="content">
                     <div id="infoCard">                        
-                        <p id="loading">--</p>
+                        <!-- <p id="loading">-</p> -->
                         <!-- <p class="heaterOff showAfterLoading" id="heaterOff">OFF</p> -->
                         <p class="setTemp showAfterLoading" id="setTemp"><span id="setTempValue">24</span><span id="setTempSymbol">C</span></p>
                         <p class="currentTemp showAfterLoading"  id="heaterOff"><span id="currentTempValue">24</span><span id="currentTempSymbol">C</span></p>
@@ -61,10 +53,12 @@ if(isset($_GET['zone']))
                             <a id="fahrenheitToggle" href="">Use Fahrenheit</a>
                         </p>
                     </div>
+
                 </div>
+
                 <div id="graphCard">
                   <canvas id="temperatureChart"></canvas>
-                </div>                  
+                </div
             </div>
         </div>
 
@@ -72,11 +66,10 @@ if(isset($_GET['zone']))
         <script>window.jQuery || document.write('<script src="js/vendor/jquery-1.10.1.min.js"><\/script>')</script>
 
         <script src="js/main.js"></script>
-        <script src="js/graph.js"></script>
         
         <script>
-            $("#loading").show();
-            $(".showAfterLoading").hide();
+            // $("#loading").show();
+            // $(".showAfterLoading").hide();
 
             ReadCookieData();
             UpdateThermostatData();
@@ -102,10 +95,6 @@ if(isset($_GET['zone']))
 
                 $("#fahrenheitToggle").click(function(e) {e.preventDefault(); SetTemperatureToFahrenheit(true); return false; });
                 $("#celsiusToggle").click(function(e) {e.preventDefault(); SetTemperatureToFahrenheit(false); return false; });
-
-                DrawChart();
-                setInterval(DrawChart, 120000);
-
 			});        	
         </script>
 
@@ -116,5 +105,29 @@ if(isset($_GET['zone']))
             g.src='//www.google-analytics.com/ga.js';
             s.parentNode.insertBefore(g,s)}(document,'script'));
         </script>
+
+      <script>
+        const ctx = document.getElementById('temperatureChart');
+
+        new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: ['0', '1', '2', '3', '4', '5'],
+            datasets: [{
+              label: '# of Votes',
+
+              data: [12, 19, 3, 5, 2, 3],
+              borderWidth: 1
+            }]
+          },
+          options: {
+            scales: {
+              y: {
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      </script>        
     </body>
 </html>
