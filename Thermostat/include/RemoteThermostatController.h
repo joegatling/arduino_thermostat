@@ -4,6 +4,7 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <functional>
 
 #if NODE_MCU
   #include <ESP8266WiFi.h> 
@@ -12,13 +13,16 @@
 #endif
 
 #include <WiFiUdp.h>
-#include <Syslog.h>
+//#include <Syslog.h>
+//#include <ESPTelnet.h>
 
 #define SERIAL_OUTPUT Serial
 //#define JSON_SIZE 2*JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(4) + JSON_OBJECT_SIZE(5) + 248
 #define JSON_SIZE 512
 
 #define REQUEST_TIMEOUT 100000
+
+//#define TELNET_PORT 23
 
 
 enum ServerRequestType
@@ -54,13 +58,14 @@ class RemoteThermostatController
 
     unsigned long GetTimeSinceLastServerResponse() { return (_lastServerResponse == 0 || millis() < _lastServerResponse) ? 0 : millis() - _lastServerResponse; }  
 
-    void SetSyslogMode(bool isSyslogOn) { _isSyslogOn = isSyslogOn; }
-    bool GetSyslogMode() { return _isSyslogOn; }
+    // void SetSyslogMode(bool isSyslogOn) { _isSyslogOn = isSyslogOn; }
+    // bool GetSyslogMode() { return _isSyslogOn; }
 
     bool GetErrorState() { return _request.responseHTTPcode() < 0; }
+    //bool IsTelnetConnected() { return _telnet.isConnected(); }
       
   private: 
-
+    static RemoteThermostatController* __instance;
 
     String _apiKey = "";
     String _thermostat = "default";
@@ -89,8 +94,10 @@ class RemoteThermostatController
     bool _wasPowerSetRemotely = false;
 
     bool _isInLocalMode = false;
-    bool _isSyslogOn = false;
+    //bool _isSyslogOn = false;
     
+    //ESPTelnet _telnet;
+
     StaticJsonDocument<JSON_SIZE> _jsonDocument;
     JsonObject _jsonObject;
 
@@ -103,4 +110,19 @@ class RemoteThermostatController
     void SyncDataWithServer();
 
     bool IsRequestInProgress() { return _currentRequestType != NO_REQUEST; }
+
+
+    // void SetupTelnet();
+
+    // void OnTelnetConnect(String ip);
+    // void OnTelnetDisconnect(String ip);
+    // void OnTelnetReconnect(String ip);
+    // void OnTelnetConnectionAttempt(String ip);
+    // void OnTelnetInput(String str);    
+
+    // static void OnTelnetConnectWrapper(String ip);
+    // static void OnTelnetDisconnectWrapper(String ip);
+    // static void OnTelnetReconnectWrapper(String ip);
+    // static void OnTelnetConnectionAttemptWrapper(String ip);
+    // static void OnTelnetInputWrapper(String str);        
 };

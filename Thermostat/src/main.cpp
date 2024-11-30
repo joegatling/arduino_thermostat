@@ -6,7 +6,11 @@
   #include <ESP8266WiFi.h>
   #include <ESP8266HTTPClient.h>
 #elif QT_PY
-  #include <Adafruit_SSD1306.h>
+  #include <Adafruit_NeoPixel.h>
+#endif
+
+#if TEST_ENVIRONMENT
+    #include <Adafruit_SSD1306.h>
 #endif
 
 #include <ArduinoJson.h>
@@ -68,12 +72,12 @@
   #define DOWN_BUTTON_PIN   D6
   #define POWER_BUTTON_PIN  D7
 #elif QT_PY
-  #define HEATER_PIN        A3
+  #define HEATER_PIN        GPIO_NUM_36
 
   #define LED_CLOCK         SCL
   #define LED_DATA          SDA
 
-  #define ONE_WIRE_PIN      SCK
+  #define ONE_WIRE_PIN      A3
 
   #define UP_BUTTON_PIN     A2
   #define DOWN_BUTTON_PIN   A1
@@ -110,7 +114,7 @@ bool isInGeorgeBoostTime();
 #define MESSAGE_WIFI          F("WIFI?")
 #define MESSAGE_TIMEOUT_ERR   F("SERVER TIMEOUT ERROR")
 #define MESSAGE_RECONNECTED   F("CONNECTED")
-#define MESSAGE_TEMP_ERR      F("TEMPERATURE READ ERROR")
+#define MESSAGE_TEMP_ERR      F("TEMP ERROR")
 #define MESSAGE_LOCAL         F("WIFI: OFF")
 #define MESSAGE_ONLINE        F("WIFI: ON")
 
@@ -131,7 +135,7 @@ bool pidState;
 bool heaterState;
 AutoPIDRelay pid(&current, &target, &pidState, HEATER_RELAY_WINDOW_SIZE, KP, KI, KD);
 
-#if TEST_ENVIRONMENT
+#if QT_PY
   SimpleButton upButton(UP_BUTTON_PIN);
   SimpleButton downButton(DOWN_BUTTON_PIN);
   SimpleButton powerButton(POWER_BUTTON_PIN);
@@ -149,6 +153,10 @@ bool showDebugInfo = false;
   Adafruit_SSD1306 matrix = Adafruit_SSD1306(128, 64);
 #else
   Adafruit_8x16matrix matrix = Adafruit_8x16matrix();
+#endif
+
+#if QT_PY && HAS_NEOPIXEL
+  Adafruit_NeoPixel pixel = Adafruit_NeoPixel(1, PIN_NEOPIXEL);
 #endif
 
 unsigned long setTempTime = 0;
@@ -224,7 +232,7 @@ void downButtonLongPress()
 {
   showDebugInfo = !showDebugInfo;
 
-  thermostatController.SetSyslogMode(showDebugInfo);
+  //thermostatController.SetSyslogMode(showDebugInfo);
 
   EEPROM.write(DEBUG_EEPROM_ADDR, (byte)showDebugInfo);
   EEPROM.commit();    
@@ -251,6 +259,33 @@ void powerButtonLongPress()
   EEPROM.write(LOCAL_EEPROM_ADDR, (byte)thermostatController.IsInLocalMode());
   EEPROM.commit();    
 }
+
+unsigned long lastReportTime = 0;
+bool isInGeorgeBoostTime()
+{
+  // if((millis() / 1000) != lastReportTime)
+  // {
+  //   Serial.print("Millis: ");
+  //   Serial.println(millis());
+  //   Serial.print("George Boost Time: ");
+  //   Serial.println(georgeBoostTime);
+  //   Serial.print("Curent / Target: ");
+  //   Serial.print(thermostatController.GetCurrentTemperature());
+  //   Serial.print(" / ");
+  //   Serial.println(thermostatController.GetTargetTemperature());
+
+  //   Serial.print("Toggle in: ");
+  //   Serial.println(max((unsigned long)0, MIN_TOGGLE_TIME - (millis() - lastToggleTime)));
+
+  //   lastReportTime = millis() / 1000;
+  // }
+
+
+  return (georgeBoostTime > 0) && 
+         (millis() - georgeBoostTime) < GEORGE_BOOST_TIME &&
+         thermostatController.GetCurrentTemperature() < thermostatController.GetTargetTemperature();
+}
+
 
 bool shouldShowTargetTemperature()
 {
@@ -315,7 +350,43 @@ void drawPulseState()
   matrix.drawPixel(t * totalWidth * DISPLAY_SCALE, (heaterState ? 6 : 7)  * DISPLAY_SCALE, blinking);
 }
 
+#define SIN_01(x) ((sin(x) + 1.0) / 2.0)
 
+void updateNeoPixel()
+{
+  #if QT_PY && HAS_NEOPIXEL
+    if(IS_ERROR_STATE)
+    {
+      pixel.fill(pixel.Color(SIN_01(millis() / 200) * 255, 0, 0));
+      pixel.show();
+    }
+    // else if(thermostatController.IsTelnetConnected())
+    // {
+    //   pixel.fill(pixel.Color(SIN_01(millis() / 500) * 255, SIN_01(millis() / 500) * 255, 255));
+    //   pixel.show();      
+    // }
+    else if(isInGeorgeBoostTime())
+    {
+      pixel.rainbow((millis()*20) % 0xFFFF);
+      pixel.show();
+    }
+    else
+    {
+      const float pulseTime = 500.0f;
+      if(thermostatController.GetTimeSinceLastServerResponse() < pulseTime)
+      {
+        float t = (1.0f - (thermostatController.GetTimeSinceLastServerResponse() / pulseTime));
+        pixel.fill(pixel.Color(64 * t, 64 * t, 0));
+        pixel.show();
+      }
+      else
+      {
+        pixel.clear();
+        pixel.show();
+      }
+    }
+  #endif
+}
 
 void updateLED()
 {
@@ -433,10 +504,12 @@ void updateLED()
     }
   }
 
-  if(IS_ERROR_STATE)
-  {
-    matrix.drawPixel(0,0, LED_ON);
-  }
+  #ifndef QT_PY
+    if(IS_ERROR_STATE )
+    {
+      matrix.drawPixel(0,0, LED_ON);
+    }
+  #endif
 
   #if TEST_ENVIRONMENT
     matrix.display();
@@ -591,31 +664,7 @@ unsigned long getTimeLeftInRelayPulse()
   return pulseTime - timeInCurrentWindow;
 }
 
-unsigned long lastReportTime = 0;
-bool isInGeorgeBoostTime()
-{
-  if((millis() / 1000) != lastReportTime)
-  {
-    Serial.print("Millis: ");
-    Serial.println(millis());
-    Serial.print("George Boost Time: ");
-    Serial.println(georgeBoostTime);
-    Serial.print("Curent / Target: ");
-    Serial.print(thermostatController.GetCurrentTemperature());
-    Serial.print(" / ");
-    Serial.println(thermostatController.GetTargetTemperature());
 
-    Serial.print("Toggle in: ");
-    Serial.println(max((unsigned long)0, MIN_TOGGLE_TIME - (millis() - lastToggleTime)));
-
-    lastReportTime = millis() / 1000;
-  }
-
-
-  return (georgeBoostTime > 0) && 
-         (millis() - georgeBoostTime) < GEORGE_BOOST_TIME &&
-         thermostatController.GetCurrentTemperature() < thermostatController.GetTargetTemperature();
-}
 void setup()
 {
   Serial.begin(19200);
@@ -629,6 +678,12 @@ void setup()
   pinMode(HEATER_PIN, OUTPUT);
   digitalWrite(HEATER_PIN, LOW);  
   heaterState = false;
+
+  #if QT_PY && HAS_NEOPIXEL
+    pixel.begin();
+    pixel.fill(pixel.Color(255,255,0));
+    pixel.show();
+  #endif
 
   Serial.println("Done");
   Serial.print("Initializing LED Matrix... ");  
@@ -756,7 +811,7 @@ void setup()
   useFahrenheit = boolean(EEPROM.read(FAHRENHEIT_EEPROM_ADDR));  
   showDebugInfo = boolean(EEPROM.read(DEBUG_EEPROM_ADDR));
   thermostatController.SetLocalMode(boolean(EEPROM.read(LOCAL_EEPROM_ADDR)));
-  thermostatController.SetSyslogMode(true);
+  //thermostatController.SetSyslogMode(true);
   
   Serial.print(" > Use Fahrenheit: ");  
   Serial.println(useFahrenheit);  
@@ -767,7 +822,7 @@ void setup()
   Serial.print(" > Local Mode: ");  
   Serial.println(thermostatController.IsInLocalMode());  
 
-  Serial.println("Initializing OTA Update..."); 
+  Serial.print("Initializing OTA Update..."); 
 
   ArduinoOTA.setHostname(HOSTNAME);
   ArduinoOTA.setPassword(OTA_PASSWORD);
@@ -834,6 +889,16 @@ void setup()
   });
   
   ArduinoOTA.begin();
+
+  Serial.println("Done"); 
+
+  #if QT_PY  && HAS_NEOPIXEL
+    pixel.fill(pixel.Color(0,255,0));
+    pixel.show();
+
+    delay(200);
+  #endif
+
 }
 
 void loop()
@@ -902,6 +967,7 @@ void loop()
   }
 
   updateLED();
+  updateNeoPixel();
 
   //delay(5);
 }

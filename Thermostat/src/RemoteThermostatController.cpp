@@ -1,25 +1,34 @@
 #include "RemoteThermostatController.h"
 
+#include <iostream>
+#include <vector>
+#include <string>
+#include <sstream>
+#include <iterator>
+
 #define HOST "http://joegatling.com"
 #define SYNC_DATA_URL HOST "/sites/temperature/sync.php"
 
 #define MIN_SERVER_SYNC_INTERVAL 2000
 #define MAX_SERVER_SYNC_INTERVAL 10000
 
-#define DEVICE_HOSTNAME "thermostat"
-#define APP_NAME "sync"
+// #define DEVICE_HOSTNAME "thermostat"
+// #define APP_NAME "sync"
 
-#define SYSLOG_SERVER "255.255.255.255"
-#define SYSLOG_PORT 514
+// #define SYSLOG_SERVER "255.255.255.255"
+// #define SYSLOG_PORT 514
 
 WiFiUDP udpClient;
 
 // Create a new syslog instance with LOG_KERN facility
-Syslog syslog(udpClient, SYSLOG_SERVER, SYSLOG_PORT, DEVICE_HOSTNAME, APP_NAME, LOG_KERN);
+//Syslog syslog(udpClient, SYSLOG_SERVER, SYSLOG_PORT, DEVICE_HOSTNAME, APP_NAME, LOG_KERN);
 
+RemoteThermostatController* RemoteThermostatController::__instance = 0;
 
 RemoteThermostatController::RemoteThermostatController(String key, String thermostatName, bool useRemoteTemperature)
 {  
+  __instance = this;
+
   _apiKey = key;
   _thermostat = thermostatName;
   _shouldUseRemoteTemperature = useRemoteTemperature;
@@ -48,6 +57,8 @@ RemoteThermostatController::RemoteThermostatController(String key, String thermo
   _isThermostatOn = false;
 
   SyncDataWithServer();
+
+  //SetupTelnet();
 }
 
 void RemoteThermostatController::Update()
@@ -75,12 +86,14 @@ void RemoteThermostatController::Update()
     // Abandon the request if it times too long
     if(_request.elapsedTime() > REQUEST_TIMEOUT)
     {
-      syslog.log(LOG_ERR, "Request Timeout");
+      //syslog.log(LOG_ERR, "Request Timeout");
             
       _currentRequestType = NO_REQUEST;
       _request.abort();      
     }
   }
+
+  //_telnet.loop();
 }
     
 void RemoteThermostatController::SetCurrentTemperature(float celsius)
@@ -152,11 +165,11 @@ void RemoteThermostatController::SyncDataWithServer()
     _request.send();   
 
     SERIAL_OUTPUT.println(F("Sync Data"));        
-    if(_isSyslogOn)
-    {
-      syslog.log(LOG_DEBUG, "Syncing data with server."); 
-      syslog.log(LOG_DEBUG, url.c_str()); 
-    }     
+    // if(_isSyslogOn)
+    // {
+    //   syslog.log(LOG_DEBUG, "Syncing data with server."); 
+    //   syslog.log(LOG_DEBUG, url.c_str()); 
+    // }     
   }
 }
 
@@ -184,15 +197,15 @@ void RemoteThermostatController::AsyncRequestResponseSyncData()
     SERIAL_OUTPUT.println(F("Received Thermostat Data:"));
     SERIAL_OUTPUT.println(payload);
 
-    if(_isSyslogOn)
-    {
-      syslog.log(LOG_DEBUG, "Receieved Thermostat Data:"); 
-      syslog.log(LOG_DEBUG, payload);               
-    }
-    else
-    {     
-      SERIAL_OUTPUT.println(F("No Syslog")); 
-    }
+    // if(_isSyslogOn)
+    // {
+    //   syslog.log(LOG_DEBUG, "Receieved Thermostat Data:"); 
+    //   syslog.log(LOG_DEBUG, payload);               
+    // }
+    // else
+    // {     
+    //   SERIAL_OUTPUT.println(F("No Syslog")); 
+    // }
     
     auto error = deserializeJson(_jsonDocument, payload);
     
@@ -274,9 +287,91 @@ void RemoteThermostatController::AsyncRequestResponseSyncData()
   }
   else
   {    
-    if(_isSyslogOn)
-    {
-      syslog.logf(LOG_DEBUG, "Response Code: %d", (int)_request.responseHTTPcode());
-    }
+    // if(_isSyslogOn)
+    // {
+    //   syslog.logf(LOG_DEBUG, "Response Code: %d", (int)_request.responseHTTPcode());
+    // }
   }
 }
+
+// void RemoteThermostatController::SetupTelnet()
+// {
+//   _telnet.onConnect(OnTelnetConnectWrapper);
+//   _telnet.onDisconnect(OnTelnetDisconnectWrapper);
+//   _telnet.onReconnect(OnTelnetReconnectWrapper);
+//   _telnet.onConnectionAttempt(OnTelnetConnectionAttemptWrapper);
+//   _telnet.onInputReceived(OnTelnetInputWrapper);
+
+//   if (_telnet.begin(TELNET_PORT)) 
+//   {
+//   } 
+//   else 
+//   {
+//     SERIAL_OUTPUT.println("Telnet error.");
+//   }
+// }
+
+// // (optional) callback functions for telnet events
+// void RemoteThermostatController::OnTelnetConnect(String ip) 
+// {
+//   _telnet.println("Thermostat");
+//   _telnet.println("==========\n");
+//   _telnet.println("\nWelcome " + _telnet.getIP());
+
+//   Serial.println("Telnet Connect");
+// }
+
+// void RemoteThermostatController::OnTelnetDisconnect(String ip) 
+// {
+//   Serial.println("Telnet Disconnect");  
+// }
+
+// void RemoteThermostatController::OnTelnetReconnect(String ip) 
+// {
+//   Serial.println("Telnet Reconnect");  
+
+// }
+
+// void RemoteThermostatController::OnTelnetConnectionAttempt(String ip) 
+// {
+//   Serial.println("Telnet Attempt");  
+
+// }
+
+// void RemoteThermostatController::OnTelnetInput(String str) 
+// { 
+//     std::stringstream data(str.c_str());
+//     std::string command;
+
+//     data >> command;
+
+//     // convert to lower case
+//     std::transform(command.begin(), command.end(), command.begin(), ::tolower);
+
+//     if(command == "set")
+//     {
+//       // Set Temperature
+
+//     }
+//     if(command == "log")
+//     {
+
+//     }
+//     // return 0;  
+
+//   // // checks for a certain command
+//   // if (str == "ping") {
+//   //   _telnet.println("> pong");
+//   //   Serial.println("- Telnet: pong");
+//   // // disconnect the client
+//   // } else if (str == "bye") {
+//   //   _telnet.println("> disconnecting you...");
+//   //   _telnet.disconnectClient();
+//   //   }
+// }
+
+// void RemoteThermostatController::OnTelnetConnectWrapper(String ip) { RemoteThermostatController::__instance->OnTelnetConnect(ip); }
+// void RemoteThermostatController::OnTelnetDisconnectWrapper(String ip) { RemoteThermostatController::__instance->OnTelnetDisconnect(ip); }
+// void RemoteThermostatController::OnTelnetReconnectWrapper(String ip) { RemoteThermostatController::__instance->OnTelnetReconnect(ip); }
+// void RemoteThermostatController::OnTelnetConnectionAttemptWrapper(String ip) { RemoteThermostatController::__instance->OnTelnetConnectionAttempt(ip); }
+// void RemoteThermostatController::OnTelnetInputWrapper(String str){ __instance->OnTelnetInput(str); }
