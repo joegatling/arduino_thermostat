@@ -513,7 +513,7 @@ function DrawChart()
 			
 							if (lastPoint) {
 								ctx.save();
-								ctx.font = '${fontSize}px Roboto'; // Customize font size and style
+								ctx.font = `${fontSize}px Roboto`; // Customize font size and style
 								ctx.fillStyle = '#ffefaa'; // Match point color
 								ctx.textAlign = 'left';
 
