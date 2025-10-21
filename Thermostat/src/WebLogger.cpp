@@ -85,7 +85,7 @@ _server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
 WebLogger::~WebLogger()
 {
     // Cleanup
-    delete _instance;
+    // Removed recursive delete of _instance to prevent recursive deletion problem.
     _instance = 0;
 }
 
