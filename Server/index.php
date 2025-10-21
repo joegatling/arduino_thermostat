@@ -43,7 +43,7 @@ if(isset($_GET['zone']))
                 </div>
                 <div id="content">
                     <div id="infoCard">                        
-                        <p id="loading">00</p>
+                        <p id="loading">--</p>
                         <!-- <p class="heaterOff showAfterLoading" id="heaterOff">OFF</p> -->
                         <p class="setTemp showAfterLoading" id="setTemp"><span id="setTempValue">24</span><span id="setTempSymbol">C</span></p>
                         <p class="currentTemp showAfterLoading"  id="heaterOff"><span id="currentTempValue">24</span><span id="currentTempSymbol">C</span></p>
