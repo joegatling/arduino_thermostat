@@ -17,7 +17,8 @@ if ($mysqli->connect_error) {
 
 $thermostat = mysqli_real_escape_string($mysqli, $thermostat);
 
-$query = "SELECT @ROWS_TO_DELETE := COUNT(*) - $rowsToKeep FROM `$tableCurrentTemperature`; SELECT @ROWS_TO_DELETE := IF(@ROWS_TO_DELETE<0,0,@ROWS_TO_DELETE); PREPARE STMT FROM \"DELETE FROM `$tableCurrentTemperature` ORDER BY `timestamp` ASC LIMIT ?\"; EXECUTE STMT USING @ROWS_TO_DELETE;";
+//$query = "SELECT @ROWS_TO_DELETE := COUNT(*) - $rowsToKeep FROM `$tableCurrentTemperature`; SELECT @ROWS_TO_DELETE := IF(@ROWS_TO_DELETE<0,0,@ROWS_TO_DELETE); PREPARE STMT FROM \"DELETE FROM `$tableCurrentTemperature` ORDER BY `timestamp` ASC LIMIT ?\"; EXECUTE STMT USING @ROWS_TO_DELETE;";
+$query = "CALL CleanTemperatureData()";
 
 $mysqli->query($query);
 $mysqli->close(); 

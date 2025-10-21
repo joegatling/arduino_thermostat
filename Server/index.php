@@ -27,9 +27,8 @@ if(isset($_GET['zone']))
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
         <link href="https://fonts.googleapis.com/css?family=Roboto:100,200,400,900&display=swap" rel="stylesheet">
-        <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">     
 
-        <script src="js/vendor/modernizr-2.6.2-respond-1.1.0.min.js"></script>
+        <!-- <script src="js/vendor/modernizr-2.6.2-respond-1.1.0.min.js"></script> -->
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>         
     </head>
     <body>
@@ -39,6 +38,9 @@ if(isset($_GET['zone']))
         
         <div id="container">
             <div id="square">
+                <div id="graphCard">
+                  <canvas id="temperatureChart"></canvas>
+                </div>
                 <div id="content">
                     <div id="infoCard">                        
                         <p id="loading">--</p>
@@ -61,10 +63,7 @@ if(isset($_GET['zone']))
                             <a id="fahrenheitToggle" href="">Use Fahrenheit</a>
                         </p>
                     </div>
-                </div>
-                <div id="graphCard">
-                  <canvas id="temperatureChart"></canvas>
-                </div>                  
+                </div>                 
             </div>
         </div>
 
@@ -72,7 +71,6 @@ if(isset($_GET['zone']))
         <script>window.jQuery || document.write('<script src="js/vendor/jquery-1.10.1.min.js"><\/script>')</script>
 
         <script src="js/main.js"></script>
-        <script src="js/graph.js"></script>
         
         <script>
             $("#loading").show();

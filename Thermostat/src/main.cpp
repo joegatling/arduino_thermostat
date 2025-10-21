@@ -28,7 +28,11 @@
 #include "RemoteThermostatController.h"
 #include "SimpleButton.h"
 
+#include "WebLogger.h"
+
 #include <stdio.h>
+
+#include <ESPmDNS.h>
 
 #include "Configuration.h"
 /*
@@ -376,7 +380,23 @@ void updateNeoPixel()
       if(thermostatController.GetTimeSinceLastServerResponse() < pulseTime)
       {
         float t = (1.0f - (thermostatController.GetTimeSinceLastServerResponse() / pulseTime));
-        pixel.fill(pixel.Color(8 * t, 8 * t, 0));
+        
+        if(thermostatController.GetIfLastServerResponseWasValid())
+        {
+          pixel.fill(pixel.Color(8 * t, 8 * t, 0));
+        }
+        else
+        {
+          if(t < 0.5f)
+          {
+            pixel.fill(pixel.Color(8 * t, 0, 0));
+          }
+          else
+          {
+            pixel.fill(pixel.Color(8 * t, 8 * t, 0));
+          }
+        }
+        
         pixel.show();
       }
       else
@@ -822,6 +842,25 @@ void setup()
   Serial.print(" > Local Mode: ");  
   Serial.println(thermostatController.IsInLocalMode());  
 
+  Serial.print("Initializing MDNS... ");
+  if (!MDNS.begin(F(HOSTNAME))) 
+  {
+    Serial.println("Error setting up MDNS responder");
+  } 
+  else 
+  {
+    Serial.println("Done");
+    MDNS.addService("http", "tcp", 80); 
+    Serial.println("TCP service added.");
+  }
+
+
+  Serial.print("Initializing Logging Server (http://");
+  Serial.print(WiFi.localIP());
+  Serial.println(")... ");
+  WebLogger::begin();
+  Serial.println("Done");
+
   Serial.print("Initializing OTA Update..."); 
 
   ArduinoOTA.setHostname(HOSTNAME);
@@ -840,8 +879,10 @@ void setup()
       matrix.clear();
     #endif
 
+    matrix.setCursor(0, 5 * DISPLAY_SCALE);
+    matrix.print("100");
 
-    matrix.fillRect(0,0,16 * DISPLAY_SCALE,8 * DISPLAY_SCALE,LED_ON);
+    matrix.fillRect(0,7,16 * DISPLAY_SCALE, 1,LED_ON);
   
     #ifdef TEST_ENVIRONMENT
       matrix.display();
@@ -863,10 +904,13 @@ void setup()
       matrix.clear();
     #endif
 
+    matrix.setCursor(0, 5 * DISPLAY_SCALE);
+    matrix.print(progress / (total / 100));
+
     int barWidth = ((float)progress/(float)total) * matrix.width();
     if(barWidth > 0)
     {
-      matrix.fillRect(0,0,barWidth,matrix.height(),LED_ON);
+      matrix.fillRect(0,7,barWidth,1,LED_ON);
     }
   
     #ifdef TEST_ENVIRONMENT
@@ -874,7 +918,7 @@ void setup()
     #else
       matrix.writeDisplay();
     #endif  
-    
+
     Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
   });
   
@@ -967,7 +1011,7 @@ void loop()
   }
 
   updateLED();
-  updateNeoPixel();
+  updateNeoPixel();  
 
   //delay(5);
 }
