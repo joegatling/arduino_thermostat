@@ -156,7 +156,7 @@ size_t WebLogger::print(long long num, int base)
 
 size_t WebLogger::print(unsigned long long num, int base)
 {
-    String tmp = String((unsigned long long)num, base);
+    String tmp = String(num, base);
     return print(tmp);
 }
 
