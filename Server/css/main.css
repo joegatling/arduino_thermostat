@@ -172,13 +172,19 @@ textarea {
     font-family: 'Roboto', sans-serif;
 }
 
-.currentTemp, .setTemp
+.currentTemp, .setTemp, #loading
 {
 	margin: 0;
     padding: 0;
     text-align: left;
 
 }
+
+#loading
+{
+    color: #c08300;
+}
+
 
 .currentTemp
 {
@@ -318,8 +324,9 @@ textarea {
 #graphCard
 {
     position: absolute;
-    bottom: 20%;
+    bottom: 0;
     width: 70%;
+    height: 50%;
 }
 
 

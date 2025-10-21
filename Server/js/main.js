@@ -507,14 +507,17 @@ function DrawChart()
 							const lastIndex = dataset.data.length - 1;
 							const lastPoint = meta.data[lastIndex]; // Element for the last point
 							const value = Math.round(dataset.data[lastIndex]); // Value of the last data point
+
+							const dpr = window.devicePixelRatio || 1; // Get the device pixel ratio
+							const fontSize = 8 * dpr; 							
 			
 							if (lastPoint) {
 								ctx.save();
-								ctx.font = '8px Roboto'; // Customize font size and style
+								ctx.font = '${fontSize}px Roboto'; // Customize font size and style
 								ctx.fillStyle = '#ffefaa'; // Match point color
 								ctx.textAlign = 'left';
 
-								ctx.fillText(value, lastPoint.x + 8/window.devicePixelRatio, lastPoint.y + 4/window.devicePixelRatio); // Position above the final point
+								ctx.fillText(value, lastPoint.x + 8, lastPoint.y + 4); // Position above the final point
 								ctx.restore();
 							}
 						}

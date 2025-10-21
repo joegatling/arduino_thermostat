@@ -6,6 +6,8 @@
 #include <sstream>
 #include <iterator>
 
+#include "WebLogger.h"
+
 #define HOST "http://joegatling.com"
 #define SYNC_DATA_URL HOST "/sites/temperature/sync.php"
 
@@ -52,6 +54,9 @@ RemoteThermostatController::RemoteThermostatController(String key, String thermo
 
   _hasSentCurrentTemperature = false;
   _hasSentTargetTemperature = false;
+
+  _lastServerResponse = 0;
+  _lastServerResponseWasValid = true;
 
   // Assume the thermostat is off at first. This will get replaced by server data once it arrives.
   _isThermostatOn = false;
@@ -162,9 +167,18 @@ void RemoteThermostatController::SyncDataWithServer()
     }
     
     _request.open("GET", url.c_str());
+    _request.setReqHeader(F("Host"), F("joegatling.com"));
+    _request.setReqHeader(F("Accept"), F("*/*"));
+    _request.setReqHeader(F("User-Agent"), F("Mozilla/5.0 (ESP32; ThermostatController)"));
     _request.send();   
 
-    SERIAL_OUTPUT.println(F("Sync Data"));        
+    
+
+    SERIAL_OUTPUT.println(F("Sync Data")); 
+    SERIAL_OUTPUT.println(url);
+    //WebLogger::getInstance().println("Sync Data");
+    // WebLogger::getInstance().log("Sync Data: " + url);
+          
     // if(_isSyslogOn)
     // {
     //   syslog.log(LOG_DEBUG, "Syncing data with server."); 
@@ -175,6 +189,9 @@ void RemoteThermostatController::SyncDataWithServer()
 
 void RemoteThermostatController::OnRequestReadyStateChanged(void* optParm, AsyncHTTPRequest* request, int readyState)
 {
+    // SERIAL_OUTPUT.print(F("Request Ready State Changed: "));
+    // SERIAL_OUTPUT.println(readyState);
+
   
   if(readyState == 4)
   {    
@@ -194,8 +211,9 @@ void RemoteThermostatController::AsyncRequestResponseSyncData()
   {
     const String& payload = _request.responseText();
     
-    SERIAL_OUTPUT.println(F("Received Thermostat Data:"));
-    SERIAL_OUTPUT.println(payload);
+    //SERIAL_OUTPUT.println(F("Received Thermostat Data:"));
+    //SERIAL_OUTPUT.println(payload);
+    
 
     // if(_isSyslogOn)
     // {
@@ -208,6 +226,7 @@ void RemoteThermostatController::AsyncRequestResponseSyncData()
     // }
     
     auto error = deserializeJson(_jsonDocument, payload);
+    _lastServerResponseWasValid = !error;
     
     if(!error)
     {
@@ -286,7 +305,12 @@ void RemoteThermostatController::AsyncRequestResponseSyncData()
     }
   }
   else
-  {    
+  {
+    SERIAL_OUTPUT.print(F("Request Response Code: "));
+    SERIAL_OUTPUT.println(_request.responseHTTPcode());
+
+    _lastServerResponseWasValid = false;
+
     // if(_isSyslogOn)
     // {
     //   syslog.logf(LOG_DEBUG, "Response Code: %d", (int)_request.responseHTTPcode());

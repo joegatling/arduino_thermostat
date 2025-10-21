@@ -7,14 +7,13 @@
 #include <functional>
 
 #if NODE_MCU
-  #include <ESP8266WiFi.h> 
+#include <ESP8266WiFi.h> 
 #else
-  #include <WiFi.h>
+#include <WiFi.h>
 #endif
 
 #include <WiFiUdp.h>
-//#include <Syslog.h>
-//#include <ESPTelnet.h>
+#include "WebLogger.h"
 
 #define SERIAL_OUTPUT Serial
 //#define JSON_SIZE 2*JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(4) + JSON_OBJECT_SIZE(5) + 248
@@ -57,6 +56,7 @@ class RemoteThermostatController
     float GetRemoteTemperatureChangeDelta() { return _remoteTemperatureChangeDelta; }
 
     unsigned long GetTimeSinceLastServerResponse() { return (_lastServerResponse == 0 || millis() < _lastServerResponse) ? 0 : millis() - _lastServerResponse; }  
+    bool GetIfLastServerResponseWasValid() { return _lastServerResponseWasValid; }
 
     // void SetSyslogMode(bool isSyslogOn) { _isSyslogOn = isSyslogOn; }
     // bool GetSyslogMode() { return _isSyslogOn; }
@@ -80,6 +80,7 @@ class RemoteThermostatController
     float _minTemp = 16.0f;
 
     unsigned long _lastServerResponse = 0;
+    bool _lastServerResponseWasValid = true;
 
     bool _isCurrentTemperatureSetLocally = false;
     bool _isTargetTemperatureSetLocally = false;
