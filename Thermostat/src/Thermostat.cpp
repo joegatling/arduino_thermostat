@@ -1,0 +1,245 @@
+#include "Thermostat.h"
+
+// Pin definitions
+#define ONE_WIRE_PIN A3
+#define HEATER_RELAY_PIN GPIO_NUM_36
+
+#define TEMPERATURE_POLL_INTERVAL   5000
+#define TEMPERATURE_ERROR_OFFSET    -1.0
+
+// 960000 = 16 minutes
+// 1920000 = 32 minutes
+#define HEATER_RELAY_WINDOW_SIZE    1920000  
+#define HEATER_MIN_TOGGLE_TIME      120000
+
+#define ABSOLUTE_MAX_TEMP_C           32.0f
+#define ABSOLUTE_MIN_TEMP_C           10.0f
+
+#define ABOLUTE_MAX_TEMP_F           C_TO_F(ABSOLUTE_MAX_TEMP_C)
+#define ABOLUTE_MIN_TEMP_F           C_TO_F(ABSOLUTE_MIN_TEMP_C)
+
+#define MIN_VALID_TEMP              -50.0f
+#define MIN_TEMPERATURE_DIFFEREENCE 0.01f
+
+#define GEORGE_BOOST_TIME           180000
+
+// Temperature sensor
+
+Thermostat::Thermostat() :
+    heaterPID(&currentTemperature, &heaterTargetTemperature, &pidState, HEATER_RELAY_WINDOW_SIZE, THERMOSTAT_KP, THERMOSTAT_KI, THERMOSTAT_KD),
+    oneWire(ONE_WIRE_PIN),
+    sensors(&oneWire),
+
+    currentTemperature(20.0f),
+    targetTemperature(20.0f),
+    heaterTargetTemperature(20.0f),
+    heaterState(HEATER_MIN_TOGGLE_TIME, false),
+    pidState(false),
+
+    currentMode(OFF),
+
+    lastTemperatureUpdateTime(0),
+    lastHeaterToggleTime(0),
+    lastModeChangeTime(0),
+    
+    isTemperatureError(false)
+{
+    pinMode(HEATER_RELAY_PIN, OUTPUT);
+    digitalWrite(HEATER_RELAY_PIN, LOW); 
+
+    sensors.requestTemperatures(); // Get initial temperature reading
+    sensors.setWaitForConversion(false);    
+}
+
+Thermostat::~Thermostat()
+{
+    digitalWrite(HEATER_RELAY_PIN, LOW);
+}
+
+void Thermostat::setTargetTemperature(float temperature, bool forceCelsius)
+{
+    // If forceCelsius is true, then the temperature will be provided in celsius, ignoring
+    // the current unit setting.
+
+    if(useFahrenheit)
+    {
+        if(forceCelsius)
+        {
+            temperature = C_TO_F(temperature);
+        }
+
+        temperature = min(ABOLUTE_MAX_TEMP_F, max(ABOLUTE_MIN_TEMP_F, temperature));
+    }
+    else
+    {
+        temperature = min(ABSOLUTE_MAX_TEMP_C, max(ABSOLUTE_MIN_TEMP_C, temperature));
+    }
+
+    if (targetTemperature != temperature) 
+    {
+        targetTemperature = temperature;
+        onTargetTemperatureChangedEvent.emit(temperature);
+    }
+}
+
+float Thermostat::getTargetTemperature(bool forceCelsius)
+{
+    float temperature = targetTemperature;
+
+    // If forceCelsius is true and we're using Fahrenheit, convert to Celsius
+    if (forceCelsius && useFahrenheit) 
+    {
+        temperature = F_TO_C(temperature);
+    }
+    
+    return temperature;
+}
+
+float Thermostat::getCurrentTemperature(bool forceCelsius)
+{
+    float temperature = currentTemperature;
+
+    // If forceCelsius is true and we're using Fahrenheit, convert to Celsius
+    if (forceCelsius && useFahrenheit) 
+    {
+        temperature = F_TO_C(temperature);
+    }
+    
+    return temperature;
+}
+
+void Thermostat::update()
+{
+    updateCurrentTemperature();
+    updateHeater();
+}
+
+size_t Thermostat::onTargetTemperatureChanged(std::function<void(float)> callback)
+{
+    return onTargetTemperatureChangedEvent.subscribe(callback);
+}
+
+size_t Thermostat::onCurrentTemperatureChanged(std::function<void(float)> callback)
+{
+    return onCurrentTemperatureChangedEvent.subscribe(callback);
+}
+
+size_t Thermostat::onModeChanged(std::function<void(ThermostatMode)> callback)
+{
+    return onModeChangedEvent.subscribe(callback);
+}
+
+size_t Thermostat::onUseFahrenheitChanged(std::function<void(bool)> callback)
+{
+    return onUseFahrenheitChangedEvent.subscribe(callback);
+}
+
+void Thermostat::updateCurrentTemperature()
+{
+    unsigned long currentTime = millis();
+    if (currentTime - lastTemperatureUpdateTime >= TEMPERATURE_POLL_INTERVAL) 
+    {
+        float newTemperature = sensors.getTempCByIndex(0) + TEMPERATURE_ERROR_OFFSET;
+
+        if(newTemperature < MIN_VALID_TEMP)
+        {
+            newTemperature = currentTemperature;
+            isTemperatureError = true; // retain old temperature on error
+        }
+        else
+        {
+            isTemperatureError = false;
+        }
+
+        if(fabs(newTemperature - currentTemperature) >= MIN_TEMPERATURE_DIFFEREENCE)
+        {
+            currentTemperature = newTemperature;
+            onCurrentTemperatureChangedEvent.emit(currentTemperature);
+        }
+        
+        lastTemperatureUpdateTime = millis();
+        sensors.requestTemperatures(); //request new temperature readings
+    }
+}
+
+void Thermostat::updateHeater()
+{
+    if(currentMode == OFF)
+    {
+        heaterTargetTemperature = MIN_VALID_TEMP;
+        heaterState.setValue(false, true); // turn off heater immediately
+    }
+    else if(currentMode == HEAT)
+    {
+        heaterTargetTemperature = targetTemperature;
+        heaterState.setValue(pidState); 
+    }
+    else if(currentMode == BOOST)
+    {
+        heaterTargetTemperature = targetTemperature + 10.0f; // Add a few degrees for boost mode
+        heaterState.setValue(true);
+
+        if(millis() - lastModeChangeTime >= GEORGE_BOOST_TIME) // Automatically return to heating mode
+        {
+            setMode(HEAT);
+        }
+    }
+
+    if(heaterState.getValue())
+    {
+        digitalWrite(HEATER_RELAY_PIN, HIGH);
+    }
+    else
+    {
+        digitalWrite(HEATER_RELAY_PIN, LOW);
+    }    
+}
+
+void Thermostat::setMode(ThermostatMode mode)
+{
+    if(currentMode != mode)
+    {
+        currentMode = mode;
+        lastModeChangeTime = millis();
+        onModeChangedEvent.emit(mode);
+    }
+}
+
+ThermostatMode Thermostat::getMode()
+{
+    return currentMode;
+}
+
+void Thermostat::setUsingFahrenheit(bool shouldUseFahrenheit)
+{
+    if(useFahrenheit != shouldUseFahrenheit)
+    {
+        useFahrenheit = shouldUseFahrenheit;
+
+        // Convert current and target temperatures to the new unit
+        if(useFahrenheit)
+        {            
+            currentTemperature = C_TO_F(currentTemperature);            
+            targetTemperature = C_TO_F(targetTemperature);
+        }
+        else
+        {
+            currentTemperature = F_TO_C(currentTemperature);
+            targetTemperature = F_TO_C(targetTemperature);
+        }
+
+        onUseFahrenheitChangedEvent.emit(useFahrenheit);
+        onCurrentTemperatureChangedEvent.emit(currentTemperature);
+        onTargetTemperatureChangedEvent.emit(targetTemperature);
+    }
+}
+
+bool Thermostat::isUsingFahrenheit()
+{
+    return useFahrenheit;
+}
+
+bool Thermostat::isUsingCelsius()
+{
+    return !useFahrenheit;
+}
