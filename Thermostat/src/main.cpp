@@ -11,12 +11,12 @@
 #include "ButtonController.h"
 #include "MqttController.h"
 
-#define PREFERENCES_NAMESPACE "joegatling_thermostat"
+#define PREFERENCES_NAMESPACE "jg"
 
-#define PREFERENCES_MQTT_SERVER "mqtt_server"
-#define PREFERENCES_MQTT_PORT "mqtt_port"
-#define PREFERENCES_MQTT_USER "mqtt_user"
-#define PREFERENCES_MQTT_PASSWORD "mqtt_pass"
+#define PREFERENCES_MQTT_SERVER "m_server"
+#define PREFERENCES_MQTT_PORT "m_port"
+#define PREFERENCES_MQTT_USER "m_user"
+#define PREFERENCES_MQTT_PASSWORD "m_pass"
 
 #define PREFERENCES_TEMPERATURE_UNIT "unit"
 
@@ -50,14 +50,28 @@ bool shouldEnterConfigMode = false;
 bool shouldSaveConfig = false;
 bool useFahrenheit = false;
 
-void configModeCallback (WiFiManager *myWiFiManager) 
+void configModeCallback(WiFiManager *myWiFiManager) 
 {
   // Show some kind of message
+  ledController.showStatusMessage("CFG", false, true);
+  ledController.setLightColor(255,255,255);
+
 }
 
-void saveConfigCallback () 
+void saveConfigCallback() 
 {
+  Serial.println("Saved config");
   shouldSaveConfig = true;
+}
+
+void configModeShortcutPressed()
+{
+  preferences.begin(PREFERENCES_NAMESPACE, false);
+  preferences.putBool(PREFERENCES_FORCE_CONFIG_NEXT_BOOT, true);
+  preferences.end();  
+
+  // Reboot the esp32
+  ESP.restart();
 }
 
 void tryToReconnect()
@@ -65,12 +79,28 @@ void tryToReconnect()
   Serial.println("Disconnected from WIFI access point");
   Serial.println("Reconnecting...");
 
-  ledController.showStatusMessage("DISCONNECTED");
+  ledController.showStatusMessage("CON?");
 
   WiFi.disconnect();
   WiFi.begin();
 }
 
+void onThermostatUnitChanged(bool unitChangedToFahrenheit)
+{
+  useFahrenheit = unitChangedToFahrenheit;
+
+  preferences.begin(PREFERENCES_NAMESPACE, false);
+  preferences.putBool(PREFERENCES_TEMPERATURE_UNIT, useFahrenheit);
+  preferences.end();
+
+  Serial.print("Thermostat unit changed to ");
+  Serial.println(useFahrenheit ? "Fahrenheit" : "Celsius"); 
+
+  preferences.begin(PREFERENCES_NAMESPACE, true);
+  Serial.print("Test: ");
+  Serial.println(preferences.getBool(PREFERENCES_TEMPERATURE_UNIT, false));
+  preferences.end();  
+}
 
 void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info)
 {
@@ -80,20 +110,24 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info)
 void setup()
 {
   Serial.begin(19200);
-  delay(200);
-  
-  Serial.println("");
-  Serial.println("");
-  Serial.println("");
-  Serial.print("Initializing Saved Data... ");
 
-  preferences.begin(PREFERENCES_NAMESPACE, false);
+  for(int i = 0; i < 20; i++)
+  {
+    Serial.print(">");
+    delay(50);
+  }
+  Serial.println();
+
+  Serial.println("Initializing Saved Data... ");
+
+  preferences.begin(PREFERENCES_NAMESPACE, true);
 
   mqtt_server = preferences.getString(PREFERENCES_MQTT_SERVER, DEFAULT_MQTT_SERVER);
   mqtt_port = preferences.getInt(PREFERENCES_MQTT_PORT, DEFAULT_MQTT_PORT);
   mqtt_user = preferences.getString(PREFERENCES_MQTT_USER, DEFAULT_MQTT_USER);    
   mqtt_password = preferences.getString(PREFERENCES_MQTT_PASSWORD, DEFAULT_MQTT_PASSWORD);
-  shouldEnterConfigMode = preferences.getBool(PREFERENCES_FORCE_CONFIG_NEXT_BOOT, true);
+  
+  shouldEnterConfigMode = preferences.getBool(PREFERENCES_FORCE_CONFIG_NEXT_BOOT, false);
   useFahrenheit = preferences.getBool(PREFERENCES_TEMPERATURE_UNIT, false);
 
   preferences.end();
@@ -119,23 +153,27 @@ void setup()
   Serial.print("Initializing Thermostat... ");
   thermostatController.setUsingFahrenheit(useFahrenheit);
   thermostatController.setMode(OFF);
+  thermostatController.onUseFahrenheitChanged(onThermostatUnitChanged);
   Serial.println("Done");
 
   Serial.print("Initializing LED Matrix... ");  
+  ledController.initialize();
   ledController.setThermostat(&thermostatController);
   Serial.println("Done");
 
   Serial.print("Initializing Buttons... ");
   buttonController.setThermostat(&thermostatController);
+  buttonController.setConfigModeCallback(configModeShortcutPressed);
   Serial.println("Done");
 
-  Serial.print("Initializing WiFi... ");
+  Serial.println("Initializing WiFi... ");
   WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
 
   WiFiManager wm;
   wm.setConfigPortalTimeout(CONFIG_PORTAL_TIMEOUT);
   wm.setAPCallback(configModeCallback);
   wm.setSaveConfigCallback(saveConfigCallback);
+  wm.setDebugOutput(true);
 
   String hostString = String(WIFI_getChipId(),HEX);
   hostString.toUpperCase();
@@ -154,24 +192,22 @@ void setup()
 
   if(shouldEnterConfigMode) 
   {
-      Serial.println("Forcing config mode");
-    
-      preferences.begin(PREFERENCES_NAMESPACE, false);
-      preferences.putBool(PREFERENCES_FORCE_CONFIG_NEXT_BOOT, false);
-      preferences.end();        
-    
-      wm.startConfigPortal((FALLBACK_SSID + hostString).c_str(), FALLBACK_PSK);
+    Serial.println("Forcing config mode");
+  
+    preferences.begin(PREFERENCES_NAMESPACE, false);
+    preferences.putBool(PREFERENCES_FORCE_CONFIG_NEXT_BOOT, false);
+    preferences.end();        
+  
+    wm.startConfigPortal((FALLBACK_SSID + hostString).c_str(), FALLBACK_PSK);
 
-      Serial.println("Returned from config portal");
+    Serial.println("Returned from config portal");
   }
   else
   {
-      preferences.begin(PREFERENCES_NAMESPACE, false);
-      preferences.putBool(PREFERENCES_FORCE_CONFIG_NEXT_BOOT, true);
-      preferences.end();
+    wm.autoConnect((FALLBACK_SSID + hostString).c_str(), FALLBACK_PSK); // password protected ap
 
-      wm.autoConnect((FALLBACK_SSID + hostString).c_str(), FALLBACK_PSK); // password protected ap
   }
+
 
   //Check if we connected to WiFi
   bool result = (WiFi.status() == WL_CONNECTED);
@@ -196,7 +232,9 @@ void setup()
   Serial.print(WiFi.localIP());
   Serial.println(")");
 
-  Serial.print("Initializing MDNS... ");
+  Serial.print("Initializing MDNS [");
+  Serial.print(F(HOSTNAME));
+  Serial.print("]... ");
   if (!MDNS.begin(F(HOSTNAME))) 
   {
     Serial.println("Error");
@@ -209,21 +247,37 @@ void setup()
   }    
 
   mqtt_server = custom_mqtt_server.getValue();
-  mqtt_password = custom_mqtt_password.getValue();
   mqtt_port = atoi(custom_mqtt_port.getValue());    
   mqtt_user = custom_mqtt_user.getValue();   
+  mqtt_password = custom_mqtt_password.getValue();
   useFahrenheit = (atoi(custom_use_fahrenheit.getValue()) == 1);
-
+  
   if(shouldSaveConfig)
   {
     Serial.print("Saving config...");
 
+    Serial.print(" > MQTT Server: ");  
+    Serial.println(mqtt_server);  
+    Serial.print(" > MQTT Port: ");  
+    Serial.println(mqtt_port);  
+    
+    Serial.print(" > MQTT User: ");  
+    Serial.println(mqtt_user);  
+    Serial.print(" > MQTT Password: ");  
+    Serial.println(mqtt_password);  
+
+    Serial.print(" > Force Config Next Boot: ");  
+    Serial.println(shouldEnterConfigMode);  
+
+    Serial.print(" > Use Fahrenheit: ");  
+    Serial.println(useFahrenheit);      
+
     preferences.begin(PREFERENCES_NAMESPACE, false);
 
     preferences.putString(PREFERENCES_MQTT_SERVER, mqtt_server);
-    preferences.putString(PREFERENCES_MQTT_PASSWORD, mqtt_password);  
     preferences.putInt(PREFERENCES_MQTT_PORT, mqtt_port);
     preferences.putString(PREFERENCES_MQTT_USER, mqtt_user);  
+    preferences.putString(PREFERENCES_MQTT_PASSWORD, mqtt_password);  
 
     preferences.putBool(PREFERENCES_TEMPERATURE_UNIT, useFahrenheit);
     preferences.putBool(PREFERENCES_FORCE_CONFIG_NEXT_BOOT, false);
@@ -233,12 +287,13 @@ void setup()
     Serial.println("Done");
   }
 
-  Serial.print("Connecting to MQTT Broker...");
+  Serial.print("Initializing MQTT...");
   mqttController.setThermostat(&thermostatController);
+  mqttController.setDeviceName(THERMOSTAT_NAME);
   mqttController.setConnectionInfo(mqtt_server, mqtt_port, mqtt_user, mqtt_password);
   Serial.println("Done");
 
-Serial.print("Initializing OTA Update..."); 
+  Serial.print("Initializing OTA Update..."); 
 
   ArduinoOTA.setHostname(HOSTNAME);
   ArduinoOTA.setPassword(OTA_PASSWORD);

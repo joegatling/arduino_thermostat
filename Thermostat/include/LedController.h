@@ -10,12 +10,13 @@
 #define DISPLAY_SCALE       1
 #define DISPLAY_ROTATION    3
 
+
 #define STATUS_MESSAGE_DURATION       6000
+#define TARGET_TEMP_DURATION          3000
+#define QUICK_MESSAGE_DURATION        1000
+
 #define STATUS_MESSAGE_SCROLL_DELAY   500
 #define STATUS_MESSAGE_SCROLL_STEP    100
-
-#define TARGET_TEMP_DURATION          3000
-#define POWER_ON_MSG_DURATION         1000
 
 #define CURRENT_TEMP_BRIGHTNESS    1
 #define TARGET_TEMP_BRIGHTNESS     2
@@ -27,12 +28,17 @@ class LedController
 public:
     LedController();
     ~LedController();   
+
+    void initialize();
     
     void setThermostat(Thermostat* thermostat);
     void update();  
 
-    void showStatusMessage(const String& message);
+    void showStatusMessage(const String& message, bool isQuickMessage = false, bool immediate = false);
     void showProgressBar(float progress);
+
+    void setLightColor(uint8_t r, uint8_t g, uint8_t b);
+
 
 private:
     void updateMatrix();
@@ -40,7 +46,7 @@ private:
 
     bool shouldShowStatusMessage();
     unsigned long getStatusMessageTime();
-    void drawStatusMessage();
+    void drawStatusMessage(bool immediate = false);
 
     bool shouldShowTargetTemperature();
     void drawTargetTemperature();
@@ -65,6 +71,7 @@ private:
     ThermostatMode currentMode = OFF;
 
     String statusMessage;
+    bool isQuickMessage = false;
 
     uint16_t statusMessageWidth, statusMessageHeight;
 };

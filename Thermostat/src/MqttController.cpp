@@ -8,12 +8,24 @@ MqttController::MqttController():
     mqtt_port(0), 
     mqtt_user(""), 
     mqtt_password(""),
-    mqttClient(espClient)
+    mqttClient(espClient),
+    deviceName("Thermostat"),
+    lastReconnectAttemptTime(0)
 {
     mqttClient.setServer(mqtt_server.c_str(), mqtt_port);
     mqttClient.setBufferSize(MSG_BUFFER_SIZE);
     mqttClient.setCallback([this](char* topic, byte* payload, unsigned int length)
     {
+        LOG.println("MQTT Message Received:");
+        LOG.print("Topic: ");
+        LOG.println(topic);
+        LOG.print("Payload: ");
+        for (unsigned int i = 0; i < length; i++)
+        {
+            LOG.print((char)payload[i]);
+        }
+        LOG.println();
+
         callback(topic, payload, length);
     });
 }
@@ -22,14 +34,19 @@ MqttController::~MqttController()
 {
 }
 
-void MqttController::setThermostat(Thermostat* thermostat)
+void MqttController::setThermostat(Thermostat* newThermostat)
 {
+    if (newThermostat == nullptr)
+    {
+        return;
+    }
+
     if(thermostat != nullptr)
     {
         return; // Already initialized
     }
 
-    thermostat = thermostat;
+    thermostat = newThermostat;
 
     thermostat->onTargetTemperatureChanged([this](float newTargetTemp)
     {   
@@ -44,6 +61,11 @@ void MqttController::setThermostat(Thermostat* thermostat)
     thermostat->onModeChanged([this](ThermostatMode newMode)
     {
         sendModeTopic();
+    });
+
+    thermostat->onHeaterPowerChanged([this](bool newHeaterPowerState)
+    {
+        sendCallForHeatTopic();
     });
 
 
@@ -64,13 +86,18 @@ void MqttController::update()
 {
     if(!isReady()) return;
 
-    // TODO: Implement MQTT update logic
-    // This should handle publishing current state and subscribing to commands
+    if(!mqttClient.connected())
+    {
+        connectMqtt();
+    }
+
+    mqttClient.loop();
 }
 
 void MqttController::sendDiscoveryMessage()
 {
     if(!isReady()) return;
+    if(!mqttClient.connected()) return;
 
     LOG.println("Sending Discovery Message...");
 
@@ -101,10 +128,10 @@ void MqttController::sendDiscoveryMessage()
     doc["components"]["climate"]["modes"] = JsonArray();
     doc["components"]["climate"]["modes"].add("off");
     doc["components"]["climate"]["modes"].add("heat");    
-    doc["components"]["climate"]["modes"].add("boost");    
     doc["components"]["climate"]["current_temperature_topic"] = TOPIC_PREFIX + deviceNameLower + CURRENT_TEMPERATURE_TOPIC_SUFFIX;    
-    doc["components"]["climate"]["temperature_command_topic"] = TOPIC_PREFIX + deviceNameLower + TARGET_TEMPERATURE_TOPIC_SUFFIX;
-
+    doc["components"]["climate"]["temperature_command_topic"] = TOPIC_PREFIX + deviceNameLower + TARGET_TEMPERATURE_COMMAND_TOPIC_SUFFIX;
+    doc["components"]["climate"]["temperature_state_topic"] = TOPIC_PREFIX + deviceNameLower + TARGET_TEMPERATURE_STATE_TOPIC_SUFFIX;
+    doc["components"]["climate"]["availability_topic"] = TOPIC_PREFIX + deviceNameLower + AVAILABILITY_TOPIC_SUFFIX;
        
     doc["components"]["temperature"]["platform"] = "sensor";
     doc["components"]["temperature"]["name"] = "Temperature Sensor";
@@ -113,14 +140,16 @@ void MqttController::sendDiscoveryMessage()
     doc["components"]["temperature"]["state_topic"] = TOPIC_PREFIX + deviceNameLower + CURRENT_TEMPERATURE_TOPIC_SUFFIX;    
     doc["components"]["temperature"]["state_class"] = "measurement";
     doc["components"]["temperature"]["unique_id"] = getDeviceId() + "_temperature";
+    doc["components"]["temperature"]["availability_topic"] = TOPIC_PREFIX + deviceNameLower + AVAILABILITY_TOPIC_SUFFIX;
 
     doc["components"]["call_for_heat"]["platform"] = "binary_sensor";
     doc["components"]["call_for_heat"]["name"] = "Call for Heat";
-    doc["components"]["call_for_heat"]["device_class"] = "heat";
+    doc["components"]["call_for_heat"]["device_class"] = "power";
     doc["components"]["call_for_heat"]["state_topic"] = TOPIC_PREFIX + deviceNameLower + CALL_FOR_HEAT_TOPIC_SUFFIX;    
     doc["components"]["call_for_heat"]["unique_id"] = getDeviceId() + "_call_for_heat";
     doc["components"]["call_for_heat"]["payload_on"] = "ON";
     doc["components"]["call_for_heat"]["payload_off"] = "OFF";
+    doc["components"]["call_for_heat"]["availability_topic"] = TOPIC_PREFIX + deviceNameLower + AVAILABILITY_TOPIC_SUFFIX;
     
     // TODO: Add the ability to send a screen message via MQTT and have it temporarily display on the screen
     // doc["components"]["screen"]["platform"] = "text";
@@ -136,14 +165,25 @@ void MqttController::sendDiscoveryMessage()
     auto result = mqttClient.publish(baseTopic.c_str(), payload.c_str(), true); // Retain the message
 
     LOG.println(baseTopic.c_str());
+    LOG.println();
     LOG.println(payload.c_str());
+    LOG.println();
+    LOG.print("Size: ");
+    LOG.println(String(baseTopic.length() + payload.length()));
 
     LOG.println(result == true ? "Success" : "Failed");
+
+    if(result == false)
+    {
+        LOG.print("MQTT Publish failed with state: ");
+        LOG.println(mqttClient.state());
+    }    
 }
 
 void MqttController::sendEmptyDiscoveryMessage()
 {
     if(!isReady()) return;
+    if(!mqttClient.connected()) return;
 
     LOG.print("Sending Empty Discovery Message...");
 
@@ -152,6 +192,12 @@ void MqttController::sendEmptyDiscoveryMessage()
     auto result = mqttClient.publish(baseTopic.c_str(), "", true); // Retain the message
 
     LOG.println(result == true ? "Success" : "Failed");
+
+    if(result == false)
+    {
+        LOG.print("MQTT Publish failed with state: ");
+        LOG.println(mqttClient.state());
+    }
 }
 
 void MqttController::sendCurrentTemperatureTopic()
@@ -172,7 +218,7 @@ void MqttController::sendTargetTemperatureTopic()
     String deviceNameLower = deviceName;
     deviceNameLower.toLowerCase();    
 
-    String topic = String(TOPIC_PREFIX) + deviceNameLower + TARGET_TEMPERATURE_TOPIC_SUFFIX;
+    String topic = String(TOPIC_PREFIX) + deviceNameLower + TARGET_TEMPERATURE_STATE_TOPIC_SUFFIX;
     mqttClient.publish(topic.c_str(), String(thermostat->getTargetTemperature(true)).c_str(), true);    
 }
 
@@ -193,8 +239,8 @@ void MqttController::sendModeTopic()
         case HEAT:
             modeStr = "heat";
             break;
-        case BOOST:
-            modeStr = "boost";
+        case BOOST: // Boost is not a mode that Home Assistant recognizes, map to heat
+            modeStr = "heat";
             break;
         default:
             modeStr = "off";
@@ -203,17 +249,65 @@ void MqttController::sendModeTopic()
     mqttClient.publish(topic.c_str(), modeStr.c_str(), true);
 }
 
+void MqttController::sendCallForHeatTopic()
+{
+    if(!isReady()) return; 
+
+    String deviceNameLower = deviceName;
+    deviceNameLower.toLowerCase();
+
+    String topic = String(TOPIC_PREFIX) + deviceNameLower + CALL_FOR_HEAT_TOPIC_SUFFIX;
+    String powerStateStr = thermostat->getHeaterPowerState() ? "ON" : "OFF";
+    mqttClient.publish(topic.c_str(), powerStateStr.c_str(), true);
+}
+
 void MqttController::connectMqtt()
 {
-    if (!mqttClient.connected())
+    if (!mqttClient.connected() && canTryReconnect())
     {
+        lastReconnectAttemptTime = millis();
         LOG.print("Connecting to MQTT...");
 
-        if (mqttClient.connect(getDeviceId().c_str(), mqtt_user.c_str(), mqtt_password.c_str()))
+        String deviceNameLower = deviceName;
+        deviceNameLower.toLowerCase();
+        String availabilityTopic = String(TOPIC_PREFIX) + deviceNameLower + AVAILABILITY_TOPIC_SUFFIX;
+        
+        // Set Last Will and Testament: if device disconnects unexpectedly, broker publishes "offline"
+        if (mqttClient.connect(
+            getDeviceId().c_str(), 
+            mqtt_user.c_str(), 
+            mqtt_password.c_str(),
+            availabilityTopic.c_str(),  // will_topic
+            1,                           // will_qos
+            true,                        // will_retain
+            "offline"                    // will_message
+        ))
         {
             LOG.println("connected");
+
+            String modeCommandTopic = String(TOPIC_PREFIX) + deviceNameLower + MODE_COMMAND_TOPIC_SUFFIX;
+            String targetTemperatureCommandTopic = String(TOPIC_PREFIX) + deviceNameLower + TARGET_TEMPERATURE_COMMAND_TOPIC_SUFFIX;
+
+            mqttClient.subscribe(modeCommandTopic.c_str());
+            LOG.print("Subscribed: ");
+            LOG.println(modeCommandTopic);
+
+            mqttClient.subscribe(targetTemperatureCommandTopic.c_str());
+            LOG.print("Subscribed: ");
+            LOG.println(targetTemperatureCommandTopic);
+
+            // Publish "online" to availability topic
+            mqttClient.publish(availabilityTopic.c_str(), "online", true);
+            LOG.print("Availability: ");
+            LOG.println(availabilityTopic);
+
             // Once connected, publish an announcement...
             sendDiscoveryMessage();
+
+            sendCurrentTemperatureTopic();
+            sendTargetTemperatureTopic();
+            sendModeTopic();
+            sendCallForHeatTopic();
         }
         else
         {
@@ -261,6 +355,16 @@ void MqttController::connectMqtt()
 void MqttController::callback(char* topic, byte* payload, unsigned int length)
 {
     if(!isReady()) return;
+
+    LOG.println("MQTT Message Received:");
+    LOG.print("Topic: ");
+    LOG.println(topic);
+    LOG.print("Payload: ");
+    for (unsigned int i = 0; i < length; i++)
+    {
+        LOG.print((char)payload[i]);
+    }
+    LOG.println();
     
     String topicStr = String(topic);
     String payloadStr = String((char*)payload).substring(0, length);
@@ -269,7 +373,7 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
     deviceNameLower.toLowerCase();
 
     String modeCommandTopic = String(TOPIC_PREFIX) + deviceNameLower + MODE_COMMAND_TOPIC_SUFFIX;
-    String targetTemperatureTopic = String(TOPIC_PREFIX) + deviceNameLower + TARGET_TEMPERATURE_TOPIC_SUFFIX;
+    String targetTemperatureTopic = String(TOPIC_PREFIX) + deviceNameLower + TARGET_TEMPERATURE_COMMAND_TOPIC_SUFFIX;
 
     if (topicStr == modeCommandTopic)
     {
@@ -322,7 +426,13 @@ String MqttController::getDeviceId()
 
 void MqttController::setDeviceName(const String& name)
 {
-    deviceName = name;
+    if(!name.equals(deviceName))
+    {
+        sendEmptyDiscoveryMessage();
+        deviceName = name;
+        sendDiscoveryMessage();
+    }
+
 }
 
 String MqttController::getDeviceName() const
@@ -332,7 +442,5 @@ String MqttController::getDeviceName() const
 
 bool MqttController::isReady()
 {
-    return 
-        thermostat != nullptr &&
-        mqttClient.connected();
+    return thermostat != nullptr;
 }

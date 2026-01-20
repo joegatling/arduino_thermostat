@@ -6,7 +6,7 @@
 
 #include "Thermostat.h"
 
-#define MSG_BUFFER_SIZE	(50)
+#define MSG_BUFFER_SIZE	(2048)
 
 #define DISCOVERY_PREFIX                    "homeassistant"
 
@@ -14,8 +14,12 @@
 #define MODE_COMMAND_TOPIC_SUFFIX           "/mode/set"
 #define MODE_STATE_TOPIC_SUFFIX             "/mode"
 #define CURRENT_TEMPERATURE_TOPIC_SUFFIX    "/temperature"
-#define TARGET_TEMPERATURE_TOPIC_SUFFIX     "/target_temperature/set"
+#define TARGET_TEMPERATURE_COMMAND_TOPIC_SUFFIX     "/target_temperature/set"
+#define TARGET_TEMPERATURE_STATE_TOPIC_SUFFIX       "/target_temperature"
 #define CALL_FOR_HEAT_TOPIC_SUFFIX          "/call_for_heat"
+#define AVAILABILITY_TOPIC_SUFFIX          "/availability"
+
+#define RECONNECT_INTERVAL_MS              5000
 
 
 class MqttController
@@ -40,8 +44,10 @@ private:
     void sendCurrentTemperatureTopic();
     void sendTargetTemperatureTopic();
     void sendModeTopic();
+    void sendCallForHeatTopic();
 
     void connectMqtt();
+    bool canTryReconnect() { return lastReconnectAttemptTime == 0 || (millis() - lastReconnectAttemptTime > RECONNECT_INTERVAL_MS); }
 
     void callback(char* topic, byte* payload, unsigned int length);
 
@@ -62,5 +68,7 @@ private:
     char msg[MSG_BUFFER_SIZE];
 
     Thermostat* thermostat;
+
+    unsigned long lastReconnectAttemptTime = 0;
 
 };

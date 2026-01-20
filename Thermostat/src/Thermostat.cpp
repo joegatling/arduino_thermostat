@@ -15,9 +15,6 @@
 #define ABSOLUTE_MAX_TEMP_C           32.0f
 #define ABSOLUTE_MIN_TEMP_C           10.0f
 
-#define ABOLUTE_MAX_TEMP_F           C_TO_F(ABSOLUTE_MAX_TEMP_C)
-#define ABOLUTE_MIN_TEMP_F           C_TO_F(ABSOLUTE_MIN_TEMP_C)
-
 #define MIN_VALID_TEMP              -50.0f
 #define MIN_TEMPERATURE_DIFFEREENCE 0.01f
 
@@ -47,8 +44,8 @@ Thermostat::Thermostat() :
     pinMode(HEATER_RELAY_PIN, OUTPUT);
     digitalWrite(HEATER_RELAY_PIN, LOW); 
 
-    sensors.requestTemperatures(); // Get initial temperature reading
     sensors.setWaitForConversion(false);    
+    sensors.requestTemperatures(); // Get initial temperature reading
 }
 
 Thermostat::~Thermostat()
@@ -56,7 +53,7 @@ Thermostat::~Thermostat()
     digitalWrite(HEATER_RELAY_PIN, LOW);
 }
 
-void Thermostat::setTargetTemperature(float temperature, bool forceCelsius)
+void Thermostat::setTargetTemperature(float newTargetTemperature, bool forceCelsius)
 {
     // If forceCelsius is true, then the temperature will be provided in celsius, ignoring
     // the current unit setting.
@@ -65,20 +62,22 @@ void Thermostat::setTargetTemperature(float temperature, bool forceCelsius)
     {
         if(forceCelsius)
         {
-            temperature = C_TO_F(temperature);
+            newTargetTemperature = C_TO_F(newTargetTemperature);
         }
 
-        temperature = min(ABOLUTE_MAX_TEMP_F, max(ABOLUTE_MIN_TEMP_F, temperature));
+        newTargetTemperature = max(C_TO_F(ABSOLUTE_MIN_TEMP_C), newTargetTemperature);
+        newTargetTemperature = min(C_TO_F(ABSOLUTE_MAX_TEMP_C), newTargetTemperature);
     }
     else
     {
-        temperature = min(ABSOLUTE_MAX_TEMP_C, max(ABSOLUTE_MIN_TEMP_C, temperature));
+        newTargetTemperature = max(ABSOLUTE_MIN_TEMP_C, newTargetTemperature);
+        newTargetTemperature = min(ABSOLUTE_MAX_TEMP_C, newTargetTemperature);
     }
-
-    if (targetTemperature != temperature) 
+ 
+    if (fabs(targetTemperature - newTargetTemperature) >= MIN_TEMPERATURE_DIFFEREENCE) 
     {
-        targetTemperature = temperature;
-        onTargetTemperatureChangedEvent.emit(temperature);
+        targetTemperature = newTargetTemperature;
+        onTargetTemperatureChangedEvent.emit(newTargetTemperature);
     }
 }
 
@@ -134,21 +133,37 @@ size_t Thermostat::onUseFahrenheitChanged(std::function<void(bool)> callback)
     return onUseFahrenheitChangedEvent.subscribe(callback);
 }
 
+size_t Thermostat::onHeaterPowerChanged(std::function<void(bool)> callback)
+{
+    return onHeaterPowerChangedEvent.subscribe(callback);
+}
+
 void Thermostat::updateCurrentTemperature()
 {
     unsigned long currentTime = millis();
     if (currentTime - lastTemperatureUpdateTime >= TEMPERATURE_POLL_INTERVAL) 
     {
+        lastTemperatureUpdateTime = millis();
+
+        // Serial.print("Reading Temperature... ");
         float newTemperature = sensors.getTempCByIndex(0) + TEMPERATURE_ERROR_OFFSET;
+        // Serial.print("Done (");
+        // Serial.print(newTemperature);
+        // Serial.println("C)");
+
+        sensors.requestTemperatures(); //request new temperature readings
 
         if(newTemperature < MIN_VALID_TEMP)
         {
-            newTemperature = currentTemperature;
             isTemperatureError = true; // retain old temperature on error
+            return;
         }
-        else
+
+        isTemperatureError = false;
+
+        if(isUsingFahrenheit())
         {
-            isTemperatureError = false;
+            newTemperature = C_TO_F(newTemperature);
         }
 
         if(fabs(newTemperature - currentTemperature) >= MIN_TEMPERATURE_DIFFEREENCE)
@@ -157,8 +172,6 @@ void Thermostat::updateCurrentTemperature()
             onCurrentTemperatureChangedEvent.emit(currentTemperature);
         }
         
-        lastTemperatureUpdateTime = millis();
-        sensors.requestTemperatures(); //request new temperature readings
     }
 }
 
@@ -183,6 +196,12 @@ void Thermostat::updateHeater()
         {
             setMode(HEAT);
         }
+    }
+
+    if(previousHeaterState != heaterState.getValue())
+    {
+        previousHeaterState = heaterState.getValue();
+        onHeaterPowerChangedEvent.emit(heaterState.getValue());
     }
 
     if(heaterState.getValue())

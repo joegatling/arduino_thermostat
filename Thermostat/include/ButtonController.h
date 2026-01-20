@@ -16,6 +16,8 @@ public:
     void setThermostat(Thermostat* thermostat);
     void update();
 
+    void setConfigModeCallback(std::function<void()> callback);
+
 private:
     static ButtonController* s_instance;
     static void upButtonEndPressCallback();
@@ -39,4 +41,7 @@ private:
     SimpleButton powerButton;    
 
     Thermostat* thermostat;
+    std::function<void()> configModeCallback;
+
+    
 };

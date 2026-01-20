@@ -57,6 +57,24 @@ struct TimeDelayBoolean
         }
     }
 
+    String toString()
+    {
+        update();
+        String result = currentState ? "true" : "false";
+
+        if(currentState != targetState)
+        {
+            result += " (target: ";
+            result += targetState ? "true" : "false";
+            result += ", ";
+            result += String(millis() - lastToggleTime);
+            result += "/";
+            result += String(minToggleTime);
+            result += ")";
+        }
+        return result;
+    }
+
     private:
         bool currentState;
         bool targetState;
@@ -70,7 +88,7 @@ struct TimeDelayBoolean
                 return;
             }
 
-            if(millis() - lastToggleTime >= minToggleTime)
+            if((millis() - lastToggleTime >= minToggleTime) || (lastToggleTime == 0))
             {
                 currentState = targetState;
                 lastToggleTime = millis();
@@ -98,12 +116,15 @@ public:
     bool isUsingFahrenheit();
     bool isUsingCelsius();
 
+    bool getHeaterPowerState() { return heaterState.getValue(); }
+
     void update();
 
     size_t onTargetTemperatureChanged(std::function<void(float)> callback);
     size_t onCurrentTemperatureChanged(std::function<void(float)> callback);
     size_t onModeChanged(std::function<void(ThermostatMode)> callback);
     size_t onUseFahrenheitChanged(std::function<void(bool)> callback);
+    size_t onHeaterPowerChanged(std::function<void(bool)> callback);
 
 private:  
 
@@ -118,6 +139,7 @@ private:
     EventEmitter<float> onCurrentTemperatureChangedEvent;
     EventEmitter<ThermostatMode> onModeChangedEvent;
     EventEmitter<bool> onUseFahrenheitChangedEvent;
+    EventEmitter<bool> onHeaterPowerChangedEvent;
 
     double currentTemperature = 20.0f;
     double targetTemperature = 20.0f;
@@ -126,6 +148,7 @@ private:
     ThermostatMode currentMode = OFF;
 
     TimeDelayBoolean heaterState;
+    bool previousHeaterState = false;
     bool pidState = false;
 
     unsigned long lastTemperatureUpdateTime = 0;

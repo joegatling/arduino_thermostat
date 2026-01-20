@@ -16,12 +16,22 @@ LedController::LedController() :
 
     statusMessage(""),
     statusMessageWidth(0),
-    statusMessageHeight(0)
+    statusMessageHeight(0),
+    isQuickMessage(false)
+{
+
+}
+
+LedController::~LedController()
+{
+}
+
+void LedController::initialize()
 {
     pixel.begin();
     pixel.fill(pixel.Color(255,255,0));
     pixel.show();
-
+    
     matrix.begin(0x70);  // pass in the address 
     matrix.setFont(&Thermostat_Font);
     matrix.setTextWrap(false);  // we dont want text to wrap so it scrolls nicely
@@ -35,10 +45,6 @@ LedController::LedController() :
     matrix.print("HI!");  
     
     matrix.writeDisplay();
-}
-
-LedController::~LedController()
-{
 }
 
 void LedController::setThermostat(Thermostat* newThermostat)
@@ -57,11 +63,15 @@ void LedController::setThermostat(Thermostat* newThermostat)
 
     thermostat->onCurrentTemperatureChanged([this](float newCurrentTemp)
     {
+        Serial.print("Current Temperature: ");  
+        Serial.println(newCurrentTemp); 
         currentTemperature = newCurrentTemp;
     });
 
     thermostat->onTargetTemperatureChanged([this](float newTargetTemp)
     {
+        Serial.print("Target Temperature: ");  
+        Serial.println(newTargetTemp); 
         targetTemperature = newTargetTemp;
         lastTargetTemperatureTime = millis();
     });
@@ -72,6 +82,31 @@ void LedController::setThermostat(Thermostat* newThermostat)
         
         previousMode = currentMode;
         currentMode = newMode;
+
+        Serial.print("Thermostat mode: ");
+        switch(currentMode)
+        {
+            case OFF: Serial.print("OFF"); break;
+            case HEAT: Serial.print("HEAT"); break;
+            case BOOST: Serial.print("BOOST"); break;
+        };
+        Serial.print(" (Previous: ");
+        switch(previousMode)
+        {
+            case OFF: Serial.print("OFF"); break;
+            case HEAT: Serial.print("HEAT"); break;
+            case BOOST: Serial.print("BOOST"); break;
+        }
+        Serial.println(")");
+
+        if(currentMode == OFF)
+        {
+            showStatusMessage("OFF", true);
+        }
+        else if(previousMode == OFF)
+        {            
+            showStatusMessage("ON", true);
+        }
     });
 
     thermostat->onUseFahrenheitChanged([this](bool newUseFahrenheit)
@@ -85,8 +120,6 @@ void LedController::setThermostat(Thermostat* newThermostat)
     currentMode = thermostat->getMode();
     previousMode = currentMode;
     useFahrenheit = thermostat->isUsingFahrenheit();
-
-
 }
 
 void LedController::update()
@@ -95,18 +128,24 @@ void LedController::update()
     updateNeoPixel();
 }
 
-void LedController::showStatusMessage(const String& message)
+void LedController::showStatusMessage(const String& message, bool quickMessage, bool immediate)
 {
     statusMessage = message;
     lastStatusMessageTime = millis();
+    isQuickMessage = quickMessage && message.length() <= 16;
 
     int16_t  x1, y1;
     matrix.getTextBounds(statusMessage, 0, 1, &x1, &y1, &statusMessageWidth, &statusMessageHeight);
+
+    if(immediate)
+    {
+        drawStatusMessage(true);
+    }
 }  
 
 bool LedController::shouldShowStatusMessage()
 {
-    if(lastStatusMessageTime == 0)
+    if(lastStatusMessageTime == 0 || statusMessage.length() == 0)
     {
         return false;
     }
@@ -116,7 +155,7 @@ bool LedController::shouldShowStatusMessage()
     }
     else
     {
-        return getStatusMessageTime() < STATUS_MESSAGE_DURATION;
+        return getStatusMessageTime() < (isQuickMessage ? QUICK_MESSAGE_DURATION : STATUS_MESSAGE_DURATION);
     }    
 }
 
@@ -125,9 +164,14 @@ unsigned long LedController::getStatusMessageTime()
     return millis() - lastStatusMessageTime;
 }
 
-void LedController::drawStatusMessage()
+void LedController::drawStatusMessage(bool immediate)
 {
-  int xOffset = 0;
+  if(immediate)
+  {
+      matrix.clear();
+  }
+
+  int xOffset = 1;
   
   if(statusMessageWidth > matrix.width())
   {
@@ -138,9 +182,15 @@ void LedController::drawStatusMessage()
   }
   
   matrix.setBrightness(MESSAGE_BRIGHTNESS);
+  matrix.setTextColor(LED_ON);
   // Do not multiply xOffset by DISPLAY_SCALE because it already takes into account the scale
   matrix.setCursor(xOffset, 5 * DISPLAY_SCALE);
   matrix.print(statusMessage);
+
+  if(immediate)
+  {
+      matrix.writeDisplay();
+  }
 }
 
 void LedController::showProgressBar(float progress)
@@ -153,8 +203,11 @@ void LedController::showProgressBar(float progress)
     matrix.clear();
 
     matrix.setCursor(0, 5 * DISPLAY_SCALE);
-    matrix.print(progress * 100);
 
+    char progressStr[8];
+    snprintf(progressStr, sizeof(progressStr), "%.1f", progress * 100);
+    matrix.print(progressStr);
+    
     int barWidth = progress * matrix.width();
     if(barWidth > 0)
     {
@@ -176,27 +229,16 @@ void LedController::drawTargetTemperature()
     {
         sprintf(str, "---");
     }
-    else if (thermostat->getMode() == OFF)
-    {
-        sprintf(str, "OFF");
-    }
     else
     {
-        if(currentMode != OFF && previousMode == OFF && millis() < lastHeaterModeChangeTime + POWER_ON_MSG_DURATION)
+        if (useFahrenheit)
         {
-            sprintf(str, "ON");
+            snprintf(str, sizeof(str), "%.0ff", targetTemperature);
         }
         else
         {
-            if (useFahrenheit)
-            {
-            sprintf(str, "%df", targetTemperature);
-            }
-            else
-            {
-            sprintf(str, "%dc", targetTemperature);
-            }       
-        }
+            snprintf(str, sizeof(str), "%.0fc", targetTemperature);
+        }       
     }
 
     int x = 1;
@@ -223,21 +265,14 @@ void LedController::drawCurrentTemperature()
     }
     else
     {
-        if(currentMode == OFF && previousMode != OFF && millis() < lastHeaterModeChangeTime + POWER_ON_MSG_DURATION)
+        if (useFahrenheit)
         {
-            sprintf(str, "OFF");
+            snprintf(str, sizeof(str), "%.0ff", currentTemperature);
         }
         else
         {
-            if (useFahrenheit)
-            {
-            sprintf(str, "%df", currentTemperature);
-            }
-            else
-            {
-            sprintf(str, "%dc", currentTemperature);
-            }       
-        }
+            snprintf(str, sizeof(str), "%.0fc", currentTemperature);
+        }               
     }
 
     int x = 1;
@@ -246,12 +281,9 @@ void LedController::drawCurrentTemperature()
     uint16_t w, h;
     
     matrix.setBrightness(CURRENT_TEMP_BRIGHTNESS);
-    matrix.getTextBounds(str, x * DISPLAY_SCALE, y * DISPLAY_SCALE, &x1, &y1, &w, &h);
-
     matrix.setCursor(x * DISPLAY_SCALE, y * DISPLAY_SCALE);
-    matrix.fillRect((x1-1),(y1-1),(w+2),(h+2),LED_ON);
-    matrix.setTextColor(LED_OFF);
-    matrix.print(str);   
+    matrix.setTextColor(LED_ON);
+    matrix.print(str); 
 }
 
 void LedController::updateMatrix()
@@ -260,14 +292,17 @@ void LedController::updateMatrix()
 
     if(shouldShowStatusMessage())
     {
+        //Serial.println("Showing status message");
         drawStatusMessage();
     }
     else if(shouldShowTargetTemperature())
     {  
+        //Serial.println("Showing target temperature");
         drawTargetTemperature();
     }
     else
     {
+        //Serial.println("Showing current temperature");
         drawCurrentTemperature();
     }
     
@@ -286,4 +321,10 @@ void LedController::updateNeoPixel()
         pixel.clear();
         pixel.show();
     }
+}
+
+void LedController::setLightColor(uint8_t r, uint8_t g, uint8_t b)
+{
+    pixel.fill(pixel.Color(r,g,b));
+    pixel.show();
 }

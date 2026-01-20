@@ -31,7 +31,8 @@ ButtonController::ButtonController() :
     upButton(UP_BUTTON_PIN),
     downButton(DOWN_BUTTON_PIN),
     powerButton(POWER_BUTTON_PIN),
-    thermostat(nullptr)
+    thermostat(nullptr),
+    configModeCallback(nullptr)
 {
     s_instance = this;
 }
@@ -83,13 +84,17 @@ void ButtonController::update()
 void ButtonController::onUpButtonEndPress()
 {
     if (thermostat == nullptr) return;
-    thermostat->setTargetTemperature(thermostat->getTargetTemperature() + 1, true);
+
+    thermostat->setMode(BOOST);
+    thermostat->setTargetTemperature(thermostat->getTargetTemperature() + 1);
 }
 
 void ButtonController::onDownButtonEndPress()
 {
     if (thermostat == nullptr) return;
-    thermostat->setTargetTemperature(thermostat->getTargetTemperature() - 1, true);
+
+    thermostat->setMode(HEAT);
+    thermostat->setTargetTemperature(thermostat->getTargetTemperature() - 1);
 }
 
 void ButtonController::onPowerButtonEndPress()
@@ -120,5 +125,14 @@ void ButtonController::onDownButtonHold()
 void ButtonController::onPowerButtonHold()
 {
     if (thermostat == nullptr) return;
-    // Optional: Implement long press behavior for power button
+
+    if (configModeCallback) 
+    {
+        configModeCallback();
+    }
 }   
+
+void ButtonController::setConfigModeCallback(std::function<void()> callback)
+{
+    this->configModeCallback = callback;
+}
