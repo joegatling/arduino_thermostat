@@ -85,8 +85,16 @@ void ButtonController::onUpButtonEndPress()
 {
     if (thermostat == nullptr) return;
 
-    thermostat->setMode(BOOST);
     thermostat->setTargetTemperature(thermostat->getTargetTemperature() + 1);
+    
+    if(thermostat->getCurrentTemperature() < thermostat->getTargetTemperature())
+    {
+        thermostat->setMode(BOOST);
+    }
+    else
+    {
+        thermostat->setMode(HEAT);
+    }
 }
 
 void ButtonController::onDownButtonEndPress()

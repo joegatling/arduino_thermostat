@@ -177,6 +177,8 @@ void Thermostat::updateCurrentTemperature()
 
 void Thermostat::updateHeater()
 {
+    heaterPID.run();
+
     if(currentMode == OFF)
     {
         heaterTargetTemperature = MIN_VALID_TEMP;
@@ -190,7 +192,7 @@ void Thermostat::updateHeater()
     else if(currentMode == BOOST)
     {
         heaterTargetTemperature = targetTemperature + 10.0f; // Add a few degrees for boost mode
-        heaterState.setValue(true);
+        heaterState.setValue(currentTemperature < targetTemperature, true);
 
         if(millis() - lastModeChangeTime >= GEORGE_BOOST_TIME) // Automatically return to heating mode
         {

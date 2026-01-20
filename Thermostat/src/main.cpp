@@ -18,6 +18,7 @@
 #define PREFERENCES_MQTT_USER "m_user"
 #define PREFERENCES_MQTT_PASSWORD "m_pass"
 
+#define PREFERENCES_THERMOSTAT_NAME "name"
 #define PREFERENCES_TEMPERATURE_UNIT "unit"
 
 #define PREFERENCES_FORCE_CONFIG_NEXT_BOOT "config"
@@ -40,38 +41,100 @@ LedController ledController;
 ButtonController buttonController;
 MqttController mqttController;
 
+WiFiManager wm;
 
 String mqtt_server = DEFAULT_MQTT_SERVER; 
 int mqtt_port = DEFAULT_MQTT_PORT;
 String mqtt_password = DEFAULT_MQTT_PASSWORD; 
 String mqtt_user = DEFAULT_MQTT_USER;
+String thermostat_name = DEFAULT_THERMOSTAT_NAME;
 
-bool shouldEnterConfigMode = false;
-bool shouldSaveConfig = false;
 bool useFahrenheit = false;
+
+WiFiManagerParameter custom_mqtt_server("mqtt_server", "MQTT server", mqtt_server.c_str(), 40);
+WiFiManagerParameter custom_mqtt_port("mqtt_port", "MQTT port", String(mqtt_port).c_str(), 6);
+WiFiManagerParameter custom_mqtt_user("mqtt_user", "MQTT user", mqtt_user.c_str(), 40);
+WiFiManagerParameter custom_mqtt_password("mqtt_password", "MQTT password", mqtt_password.c_str(), 40);
+WiFiManagerParameter custom_thermostat_name("thermostat_name", "Thermostat Name", thermostat_name.c_str(), 40);
+WiFiManagerParameter custom_use_fahrenheit("use_fahrenheit", "Use Fahrenheit (1 = yes, 0 = no)", useFahrenheit ? "1" : "0", 2);
+
+
+bool isConfigPortalActive = false;
 
 void configModeCallback(WiFiManager *myWiFiManager) 
 {
-  // Show some kind of message
   ledController.showStatusMessage("CFG", false, true);
   ledController.setLightColor(255,255,255);
-
 }
 
 void saveConfigCallback() 
 {
-  Serial.println("Saved config");
-  shouldSaveConfig = true;
+  mqtt_server = custom_mqtt_server.getValue();
+  mqtt_port = atoi(custom_mqtt_port.getValue());    
+  mqtt_user = custom_mqtt_user.getValue();   
+  mqtt_password = custom_mqtt_password.getValue();
+  useFahrenheit = (atoi(custom_use_fahrenheit.getValue()) == 1);
+  thermostat_name = custom_thermostat_name.getValue();
+
+  Serial.print("Saving config...");
+
+  Serial.print(" > MQTT Server: ");  
+  Serial.println(mqtt_server);  
+  Serial.print(" > MQTT Port: ");  
+  Serial.println(mqtt_port);  
+  
+  Serial.print(" > MQTT User: ");  
+  Serial.println(mqtt_user);  
+  Serial.print(" > MQTT Password: ");  
+  Serial.println(mqtt_password);  
+
+  Serial.print(" > Thermostat Name: ");
+  Serial.println(thermostat_name);
+
+  Serial.print(" > Use Fahrenheit: ");  
+  Serial.println(useFahrenheit);      
+
+  preferences.begin(PREFERENCES_NAMESPACE, false);
+
+  preferences.putString(PREFERENCES_MQTT_SERVER, mqtt_server);
+  preferences.putInt(PREFERENCES_MQTT_PORT, mqtt_port);
+  preferences.putString(PREFERENCES_MQTT_USER, mqtt_user);  
+  preferences.putString(PREFERENCES_MQTT_PASSWORD, mqtt_password);  
+  preferences.putString(PREFERENCES_THERMOSTAT_NAME, thermostat_name);
+
+  preferences.putBool(PREFERENCES_TEMPERATURE_UNIT, useFahrenheit);
+    
+  preferences.end();
+
+  Serial.println("Done");
+
+  if(isConfigPortalActive)
+  {
+    Serial.println("Restarting device to apply new settings...");
+    delay(1000);
+    ESP.restart();
+  }
 }
 
 void configModeShortcutPressed()
 {
-  preferences.begin(PREFERENCES_NAMESPACE, false);
-  preferences.putBool(PREFERENCES_FORCE_CONFIG_NEXT_BOOT, true);
-  preferences.end();  
+  if(isConfigPortalActive)
+  {
+    ledController.showStatusMessage("RST", false, true);
+    ledController.setLightColor(0,255,0);
 
-  // Reboot the esp32
-  ESP.restart();
+    delay(200);
+
+    ESP.restart();
+    return;
+  }
+
+  String hostString = String(WIFI_getChipId(),HEX);
+  hostString.toUpperCase();
+
+  wm.setConfigPortalBlocking(false);
+  wm.startConfigPortal((FALLBACK_SSID + hostString).c_str(), FALLBACK_PSK);
+  isConfigPortalActive = true;
 }
 
 void tryToReconnect()
@@ -126,11 +189,18 @@ void setup()
   mqtt_port = preferences.getInt(PREFERENCES_MQTT_PORT, DEFAULT_MQTT_PORT);
   mqtt_user = preferences.getString(PREFERENCES_MQTT_USER, DEFAULT_MQTT_USER);    
   mqtt_password = preferences.getString(PREFERENCES_MQTT_PASSWORD, DEFAULT_MQTT_PASSWORD);
-  
-  shouldEnterConfigMode = preferences.getBool(PREFERENCES_FORCE_CONFIG_NEXT_BOOT, false);
+
+  thermostat_name = preferences.getString(PREFERENCES_THERMOSTAT_NAME, DEFAULT_THERMOSTAT_NAME);
   useFahrenheit = preferences.getBool(PREFERENCES_TEMPERATURE_UNIT, false);
 
   preferences.end();
+
+  custom_mqtt_server.setValue(mqtt_server.c_str(), 40);
+  custom_mqtt_port.setValue(String(mqtt_port).c_str(), 6);
+  custom_mqtt_password.setValue(mqtt_password.c_str(), 40);
+  custom_mqtt_user.setValue(mqtt_user.c_str(), 40);
+  custom_thermostat_name.setValue(thermostat_name.c_str(), 40);
+  custom_use_fahrenheit.setValue(useFahrenheit ? "1" : "0", 2);
 
   Serial.print(" > MQTT Server: ");  
   Serial.println(mqtt_server);  
@@ -142,9 +212,9 @@ void setup()
   Serial.print(" > MQTT Password: ");  
   Serial.println(mqtt_password);  
 
-  Serial.print(" > Force Config Next Boot: ");  
-  Serial.println(shouldEnterConfigMode);  
-
+  Serial.print(" > Thermostat Name: ");
+  Serial.println(thermostat_name);
+  
   Serial.print(" > Use Fahrenheit: ");  
   Serial.println(useFahrenheit);  
   
@@ -169,45 +239,22 @@ void setup()
   Serial.println("Initializing WiFi... ");
   WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
 
-  WiFiManager wm;
   wm.setConfigPortalTimeout(CONFIG_PORTAL_TIMEOUT);
   wm.setAPCallback(configModeCallback);
-  wm.setSaveConfigCallback(saveConfigCallback);
-  wm.setDebugOutput(true);
+  wm.setSaveParamsCallback(saveConfigCallback);
+  wm.setParamsPage(true);
 
   String hostString = String(WIFI_getChipId(),HEX);
   hostString.toUpperCase();
-
-  WiFiManagerParameter custom_mqtt_server("mqtt_server", "MQTT server", mqtt_server.c_str(), 40);
-  WiFiManagerParameter custom_mqtt_port("mqtt_port", "MQTT port", String(mqtt_port).c_str(), 6);
-  WiFiManagerParameter custom_mqtt_user("mqtt_user", "MQTT user", mqtt_user.c_str(), 40);
-  WiFiManagerParameter custom_mqtt_password("mqtt_password", "MQTT password", mqtt_password.c_str(), 40);
-  WiFiManagerParameter custom_use_fahrenheit("use_fahrenheit", "Use Fahrenheit (1 = yes, 0 = no)", useFahrenheit ? "1" : "0", 2);
   
   wm.addParameter(&custom_mqtt_server);
   wm.addParameter(&custom_mqtt_port);
   wm.addParameter(&custom_mqtt_user);
   wm.addParameter(&custom_mqtt_password);
+  wm.addParameter(&custom_thermostat_name);
   wm.addParameter(&custom_use_fahrenheit);
-
-  if(shouldEnterConfigMode) 
-  {
-    Serial.println("Forcing config mode");
   
-    preferences.begin(PREFERENCES_NAMESPACE, false);
-    preferences.putBool(PREFERENCES_FORCE_CONFIG_NEXT_BOOT, false);
-    preferences.end();        
-  
-    wm.startConfigPortal((FALLBACK_SSID + hostString).c_str(), FALLBACK_PSK);
-
-    Serial.println("Returned from config portal");
-  }
-  else
-  {
-    wm.autoConnect((FALLBACK_SSID + hostString).c_str(), FALLBACK_PSK); // password protected ap
-
-  }
-
+  wm.autoConnect((FALLBACK_SSID + hostString).c_str(), FALLBACK_PSK); // password protected ap
 
   //Check if we connected to WiFi
   bool result = (WiFi.status() == WL_CONNECTED);
@@ -242,8 +289,6 @@ void setup()
   else 
   {
     Serial.println("Done");
-    // MDNS.addService("http", "tcp", 80); 
-    // Serial.println("TCP service added.");
   }    
 
   mqtt_server = custom_mqtt_server.getValue();
@@ -251,45 +296,15 @@ void setup()
   mqtt_user = custom_mqtt_user.getValue();   
   mqtt_password = custom_mqtt_password.getValue();
   useFahrenheit = (atoi(custom_use_fahrenheit.getValue()) == 1);
-  
-  if(shouldSaveConfig)
-  {
-    Serial.print("Saving config...");
+  thermostat_name = custom_thermostat_name.getValue();
 
-    Serial.print(" > MQTT Server: ");  
-    Serial.println(mqtt_server);  
-    Serial.print(" > MQTT Port: ");  
-    Serial.println(mqtt_port);  
-    
-    Serial.print(" > MQTT User: ");  
-    Serial.println(mqtt_user);  
-    Serial.print(" > MQTT Password: ");  
-    Serial.println(mqtt_password);  
-
-    Serial.print(" > Force Config Next Boot: ");  
-    Serial.println(shouldEnterConfigMode);  
-
-    Serial.print(" > Use Fahrenheit: ");  
-    Serial.println(useFahrenheit);      
-
-    preferences.begin(PREFERENCES_NAMESPACE, false);
-
-    preferences.putString(PREFERENCES_MQTT_SERVER, mqtt_server);
-    preferences.putInt(PREFERENCES_MQTT_PORT, mqtt_port);
-    preferences.putString(PREFERENCES_MQTT_USER, mqtt_user);  
-    preferences.putString(PREFERENCES_MQTT_PASSWORD, mqtt_password);  
-
-    preferences.putBool(PREFERENCES_TEMPERATURE_UNIT, useFahrenheit);
-    preferences.putBool(PREFERENCES_FORCE_CONFIG_NEXT_BOOT, false);
-      
-    preferences.end();
-
-    Serial.println("Done");
-  }
+  // In case we changed the units in the config portal
+  thermostatController.setUsingFahrenheit(useFahrenheit);
 
   Serial.print("Initializing MQTT...");
   mqttController.setThermostat(&thermostatController);
-  mqttController.setDeviceName(THERMOSTAT_NAME);
+  mqttController.setLedController(&ledController);
+  mqttController.setDeviceName(thermostat_name.c_str());
   mqttController.setConnectionInfo(mqtt_server, mqtt_port, mqtt_user, mqtt_password);
   Serial.println("Done");
 
@@ -327,6 +342,13 @@ void setup()
 
 void loop()
 {
+  if(isConfigPortalActive)
+  {
+    wm.process();
+    buttonController.update();
+    return;
+  }
+
   thermostatController.update();
   ledController.update();
   buttonController.update();

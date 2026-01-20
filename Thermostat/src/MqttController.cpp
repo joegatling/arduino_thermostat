@@ -1,9 +1,11 @@
 #include "MqttController.h"
+#include "LEDController.h"
 
 #define LOG Serial
 
 MqttController::MqttController(): 
     thermostat(nullptr), 
+    ledController(nullptr),
     mqtt_server(""), 
     mqtt_port(0), 
     mqtt_user(""), 
@@ -72,6 +74,11 @@ void MqttController::setThermostat(Thermostat* newThermostat)
 //    sendDiscoveryMessage();
 }
 
+void MqttController::setLedController(LedController* newLedController)
+{
+    ledController = newLedController;
+}
+
 void MqttController::setConnectionInfo(const String& server, int port, const String& user, const String& password)
 {
     mqtt_server = server;
@@ -112,7 +119,7 @@ void MqttController::sendDiscoveryMessage()
 
     doc["device"]["name"] = deviceName;
     doc["device"]["manufacturer"] = "Joe Gatling";
-    doc["device"]["model"] = "MQTT Test Model"; 
+    doc["device"]["model"] = "Yellow Boxy"; 
     doc["device"]["identifiers"][0] = getDeviceId() + "_device";
 
     doc["origin"]["name"] = "mqtt";
@@ -121,8 +128,8 @@ void MqttController::sendDiscoveryMessage()
     doc["components"]["climate"]["name"] = "Thermostat";
     doc["components"]["climate"]["unique_id"] = getDeviceId() + "_climate";    
     doc["components"]["climate"]["temperature_unit"] = "C";
-    doc["components"]["climate"]["min_temp"] = 10;
-    doc["components"]["climate"]["max_temp"] = 35;    
+    doc["components"]["climate"]["min_temp"] = 16;
+    doc["components"]["climate"]["max_temp"] = 27;    
     doc["components"]["climate"]["mode_command_topic"] = TOPIC_PREFIX + deviceNameLower + MODE_COMMAND_TOPIC_SUFFIX;
     doc["components"]["climate"]["mode_state_topic"] = TOPIC_PREFIX + deviceNameLower + MODE_STATE_TOPIC_SUFFIX;
     doc["components"]["climate"]["modes"] = JsonArray();
@@ -151,13 +158,12 @@ void MqttController::sendDiscoveryMessage()
     doc["components"]["call_for_heat"]["payload_off"] = "OFF";
     doc["components"]["call_for_heat"]["availability_topic"] = TOPIC_PREFIX + deviceNameLower + AVAILABILITY_TOPIC_SUFFIX;
     
-    // TODO: Add the ability to send a screen message via MQTT and have it temporarily display on the screen
-    // doc["components"]["screen"]["platform"] = "text";
-    // doc["components"]["screen"]["name"] = "Thermostat Screen";
-    // doc["components"]["screen"]["unique_id"] = getDeviceId() + "_screen";
-    // doc["components"]["screen"]["text_command_topic"] = "home/" + deviceNameLower + "/message/set";
-
-
+    doc["components"]["display"]["platform"] = "text";
+    doc["components"]["display"]["name"] = "Display Message";
+    doc["components"]["display"]["unique_id"] = getDeviceId() + "_display";
+    doc["components"]["display"]["command_topic"] = TOPIC_PREFIX + deviceNameLower + DISPLAY_MESSAGE_COMMAND_TOPIC_SUFFIX;
+    doc["components"]["display"]["availability_topic"] = TOPIC_PREFIX + deviceNameLower + AVAILABILITY_TOPIC_SUFFIX;
+    
     // Serialize JSON to string
     String payload;
     serializeJson(doc, payload);
@@ -287,6 +293,7 @@ void MqttController::connectMqtt()
 
             String modeCommandTopic = String(TOPIC_PREFIX) + deviceNameLower + MODE_COMMAND_TOPIC_SUFFIX;
             String targetTemperatureCommandTopic = String(TOPIC_PREFIX) + deviceNameLower + TARGET_TEMPERATURE_COMMAND_TOPIC_SUFFIX;
+            String displayMessageCommandTopic = String(TOPIC_PREFIX) + deviceNameLower + DISPLAY_MESSAGE_COMMAND_TOPIC_SUFFIX;
 
             mqttClient.subscribe(modeCommandTopic.c_str());
             LOG.print("Subscribed: ");
@@ -295,6 +302,10 @@ void MqttController::connectMqtt()
             mqttClient.subscribe(targetTemperatureCommandTopic.c_str());
             LOG.print("Subscribed: ");
             LOG.println(targetTemperatureCommandTopic);
+
+            mqttClient.subscribe(displayMessageCommandTopic.c_str());
+            LOG.print("Subscribed: ");
+            LOG.println(displayMessageCommandTopic);
 
             // Publish "online" to availability topic
             mqttClient.publish(availabilityTopic.c_str(), "online", true);
@@ -374,6 +385,7 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
 
     String modeCommandTopic = String(TOPIC_PREFIX) + deviceNameLower + MODE_COMMAND_TOPIC_SUFFIX;
     String targetTemperatureTopic = String(TOPIC_PREFIX) + deviceNameLower + TARGET_TEMPERATURE_COMMAND_TOPIC_SUFFIX;
+    String displayMessageCommandTopic = String(TOPIC_PREFIX) + deviceNameLower + DISPLAY_MESSAGE_COMMAND_TOPIC_SUFFIX;
 
     if (topicStr == modeCommandTopic)
     {
@@ -399,7 +411,8 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
     {
         float targetTemp = payloadStr.toFloat();
 
-        if(targetTemp == 0)
+        // Since we are a heat-only thermostat, we can assume a 0 target is invalid
+        if(targetTemp > 0 == false)
         {
             LOG.print("Invalid target temperature: ");
             LOG.println(payloadStr);
@@ -407,6 +420,37 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
         }
 
         thermostat->setTargetTemperature(targetTemp, true);
+
+        if(thermostat->getCurrentTemperature() < thermostat->getTargetTemperature())
+        {
+            thermostat->setMode(BOOST);
+        }
+        else
+        {
+            thermostat->setMode(HEAT);
+        }
+    }
+    else if (topicStr == displayMessageCommandTopic)
+    {
+        if (ledController != nullptr)
+        {
+            // Validate message is not empty and length is reasonable
+            if(payloadStr.length() == 0 || payloadStr.length() > 256)
+            {
+                LOG.print("Invalid display message length: ");
+                LOG.println(payloadStr.length());
+                return;
+            }
+
+            payloadStr.toUpperCase();
+            ledController->showStatusMessage(payloadStr, false, true);
+            LOG.print("Display message: ");
+            LOG.println(payloadStr);
+        }
+        else
+        {
+            LOG.println("LED Controller not initialized");
+        }
     }
     else
     {

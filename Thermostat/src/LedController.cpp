@@ -177,7 +177,11 @@ void LedController::drawStatusMessage(bool immediate)
   {
     if(getStatusMessageTime() > STATUS_MESSAGE_SCROLL_DELAY)
     {
-      xOffset = max(-statusMessageWidth+matrix.width(),-(int)(getStatusMessageTime() / STATUS_MESSAGE_SCROLL_STEP * DISPLAY_SCALE));
+        int xMaxScroll = -statusMessageWidth+matrix.width() - 1;
+        unsigned long scrollTime = getStatusMessageTime() - STATUS_MESSAGE_SCROLL_DELAY;
+
+        xOffset = max(xMaxScroll, -(int)(scrollTime / STATUS_MESSAGE_SCROLL_STEP * DISPLAY_SCALE + 1));
+        //xOffset = max(-statusMessageWidth+matrix.width() - 1,-(int)(getStatusMessageTime() / STATUS_MESSAGE_SCROLL_STEP * DISPLAY_SCALE) + 1);
     } 
   }
   
@@ -207,7 +211,7 @@ void LedController::showProgressBar(float progress)
     char progressStr[8];
     snprintf(progressStr, sizeof(progressStr), "%.1f", progress * 100);
     matrix.print(progressStr);
-    
+
     int barWidth = progress * matrix.width();
     if(barWidth > 0)
     {
