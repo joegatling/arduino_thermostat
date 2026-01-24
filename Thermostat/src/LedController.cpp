@@ -209,7 +209,7 @@ void LedController::showProgressBar(float progress)
     matrix.setCursor(0, 5 * DISPLAY_SCALE);
 
     char progressStr[8];
-    snprintf(progressStr, sizeof(progressStr), "%.1f", progress * 100);
+    snprintf(progressStr, sizeof(progressStr), "%.0f", progress * 100);
     matrix.print(progressStr);
 
     int barWidth = progress * matrix.width();
@@ -315,7 +315,7 @@ void LedController::updateMatrix()
 
 void LedController::updateNeoPixel()
 {
-    if(thermostat != nullptr && thermostat->getMode() == BOOST)
+    if(thermostat != nullptr && thermostat->getPreset() == BOOST)
     {
         pixel.rainbow((millis()*20) % 0xFFFF);
         pixel.show();

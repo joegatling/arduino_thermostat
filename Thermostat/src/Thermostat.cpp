@@ -34,10 +34,11 @@ Thermostat::Thermostat() :
     pidState(false),
 
     currentMode(OFF),
+    currentPreset(NONE),
 
     lastTemperatureUpdateTime(0),
     lastHeaterToggleTime(0),
-    lastModeChangeTime(0),
+    lastPresetChangeTime(0),
     
     isTemperatureError(false)
 {
@@ -138,6 +139,11 @@ size_t Thermostat::onHeaterPowerChanged(std::function<void(bool)> callback)
     return onHeaterPowerChangedEvent.subscribe(callback);
 }
 
+size_t Thermostat::onPresetChanged(std::function<void(ThermostatPreset)> callback)
+{
+    return onPresetChangedEvent.subscribe(callback);
+}
+
 void Thermostat::updateCurrentTemperature()
 {
     unsigned long currentTime = millis();
@@ -186,18 +192,27 @@ void Thermostat::updateHeater()
     }
     else if(currentMode == HEAT)
     {
-        heaterTargetTemperature = targetTemperature;
-        heaterState.setValue(pidState); 
-    }
-    else if(currentMode == BOOST)
-    {
-        heaterTargetTemperature = targetTemperature + 10.0f; // Add a few degrees for boost mode
-        heaterState.setValue(currentTemperature < targetTemperature, true);
-
-        if(millis() - lastModeChangeTime >= GEORGE_BOOST_TIME) // Automatically return to heating mode
+        if(currentPreset == BOOST)
         {
-            setMode(HEAT);
+            heaterTargetTemperature = targetTemperature + (useFahrenheit ? C_TO_F(10.0f) : 10.0f);
+
+            if(millis() - lastPresetChangeTime >= GEORGE_BOOST_TIME) // Automatically return to eco preset
+            {
+                setPreset(ECO);
+            }   
         }
+        else if(currentPreset == SLEEP)
+        {
+            heaterTargetTemperature = targetTemperature - (useFahrenheit ? C_TO_F(3.0f) : 3.0f);
+        }
+        else
+        {
+            heaterTargetTemperature = targetTemperature;
+        }
+
+
+        heaterTargetTemperature = targetTemperature;
+        heaterState.setValue(pidState);         
     }
 
     if(previousHeaterState != heaterState.getValue())
@@ -221,7 +236,6 @@ void Thermostat::setMode(ThermostatMode mode)
     if(currentMode != mode)
     {
         currentMode = mode;
-        lastModeChangeTime = millis();
         onModeChangedEvent.emit(mode);
     }
 }
@@ -229,6 +243,21 @@ void Thermostat::setMode(ThermostatMode mode)
 ThermostatMode Thermostat::getMode()
 {
     return currentMode;
+}
+
+void Thermostat::setPreset(ThermostatPreset preset)
+{
+    if(currentPreset != preset)
+    {
+        currentPreset = preset;
+        lastPresetChangeTime = millis();
+        onPresetChangedEvent.emit(preset);
+    }
+}
+
+ThermostatPreset Thermostat::getPreset()
+{
+    return currentPreset;
 }
 
 void Thermostat::setUsingFahrenheit(bool shouldUseFahrenheit)

@@ -12,15 +12,18 @@ class LedController; // Forward declaration
 
 #define DISCOVERY_PREFIX                    "homeassistant"
 
-#define TOPIC_PREFIX                        "home/"
-#define MODE_COMMAND_TOPIC_SUFFIX           "/mode/set"
-#define MODE_STATE_TOPIC_SUFFIX             "/mode"
-#define CURRENT_TEMPERATURE_TOPIC_SUFFIX    "/temperature"
-#define TARGET_TEMPERATURE_COMMAND_TOPIC_SUFFIX     "/target_temperature/set"
-#define TARGET_TEMPERATURE_STATE_TOPIC_SUFFIX       "/target_temperature"
-#define CALL_FOR_HEAT_TOPIC_SUFFIX          "/call_for_heat"
-#define AVAILABILITY_TOPIC_SUFFIX          "/availability"
-#define DISPLAY_MESSAGE_COMMAND_TOPIC_SUFFIX "/display/set"
+#define TOPIC_PREFIX                                 "home/"
+#define MODE_COMMAND_TOPIC_SUFFIX                    "/mode/set"
+#define MODE_STATE_TOPIC_SUFFIX                      "/mode"
+#define CURRENT_TEMPERATURE_TOPIC_SUFFIX             "/temperature"
+#define TARGET_TEMPERATURE_COMMAND_TOPIC_SUFFIX      "/target_temperature/set"
+#define TARGET_TEMPERATURE_STATE_TOPIC_SUFFIX        "/target_temperature"
+#define CALL_FOR_HEAT_TOPIC_SUFFIX                   "/call_for_heat"
+#define AVAILABILITY_TOPIC_SUFFIX                    "/availability"
+#define DISPLAY_MESSAGE_COMMAND_TOPIC_SUFFIX         "/display/set"
+#define PRESET_MODE_COMMAND_TOPIC_SUFFIX             "/preset/set"
+#define PRESET_MODE_STATE_TOPIC_SUFFIX               "/preset"
+#define ACTION_TOPIC_SUFFIX                          "/action"
 
 #define RECONNECT_INTERVAL_MS              5000
 
@@ -49,7 +52,9 @@ private:
     void sendTargetTemperatureTopic();
     void sendModeTopic();
     void sendCallForHeatTopic();
-
+    void sendPresetModeTopic();
+    void sendActionTopic();
+    
     void connectMqtt();
     bool canTryReconnect() { return lastReconnectAttemptTime == 0 || (millis() - lastReconnectAttemptTime > RECONNECT_INTERVAL_MS); }
 
@@ -58,6 +63,7 @@ private:
     bool isReady();
 
     String getDeviceId();
+    String buildTopic(const char* suffix);
 
     WiFiClient espClient;
     PubSubClient mqttClient;

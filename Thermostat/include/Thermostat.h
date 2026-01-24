@@ -18,8 +18,15 @@
 enum ThermostatMode
 {
     OFF,
-    HEAT,
-    BOOST
+    HEAT
+};
+
+enum ThermostatPreset
+{
+    NONE,
+    ECO,
+    BOOST,
+    SLEEP
 };
 
 struct TimeDelayBoolean
@@ -117,6 +124,9 @@ public:
     bool isUsingCelsius();
 
     bool getHeaterPowerState() { return heaterState.getValue(); }
+    
+    void setPreset(ThermostatPreset preset);
+    ThermostatPreset getPreset();
 
     void update();
 
@@ -125,6 +135,7 @@ public:
     size_t onModeChanged(std::function<void(ThermostatMode)> callback);
     size_t onUseFahrenheitChanged(std::function<void(bool)> callback);
     size_t onHeaterPowerChanged(std::function<void(bool)> callback);
+    size_t onPresetChanged(std::function<void(ThermostatPreset)> callback);
 
 private:  
 
@@ -140,12 +151,14 @@ private:
     EventEmitter<ThermostatMode> onModeChangedEvent;
     EventEmitter<bool> onUseFahrenheitChangedEvent;
     EventEmitter<bool> onHeaterPowerChangedEvent;
+    EventEmitter<ThermostatPreset> onPresetChangedEvent;
 
     double currentTemperature = 20.0f;
     double targetTemperature = 20.0f;
     double heaterTargetTemperature = 20.0f;
 
     ThermostatMode currentMode = OFF;
+    ThermostatPreset currentPreset = NONE;
 
     TimeDelayBoolean heaterState;
     bool previousHeaterState = false;
@@ -153,7 +166,7 @@ private:
 
     unsigned long lastTemperatureUpdateTime = 0;
     unsigned long lastHeaterToggleTime = 0;
-    unsigned long lastModeChangeTime = 0;
+    unsigned long lastPresetChangeTime = 0;
 
     bool useFahrenheit = false;
 
