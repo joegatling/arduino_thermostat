@@ -86,7 +86,7 @@ void saveConfigCallback()
   Serial.print(" > MQTT User: ");  
   Serial.println(mqtt_user);  
   Serial.print(" > MQTT Password: ");  
-  Serial.println(mqtt_password);  
+  Serial.println("******");  
 
   Serial.print(" > Thermostat Name: ");
   Serial.println(thermostat_name);
