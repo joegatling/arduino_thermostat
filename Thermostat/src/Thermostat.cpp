@@ -192,7 +192,7 @@ void Thermostat::updateHeater()
     {
         if(currentPreset == BOOST)
         {
-            heaterTargetTemperature = targetTemperature + (useFahrenheit ? C_TO_F(10.0f) : 10.0f);
+            heaterTargetTemperature = targetTemperature + (useFahrenheit ? C_TO_F_DELTA(10.0f) : 10.0f);
 
             if(millis() - lastPresetChangeTime >= GEORGE_BOOST_TIME) // Automatically return to eco preset
             {
@@ -201,7 +201,7 @@ void Thermostat::updateHeater()
         }
         else if(currentPreset == SLEEP)
         {
-            heaterTargetTemperature = targetTemperature - (useFahrenheit ? C_TO_F(3.0f) : 3.0f);
+            heaterTargetTemperature = targetTemperature - (useFahrenheit ? C_TO_F_DELTA(3.0f) : 3.0f);
         }
         else
         {
