@@ -88,14 +88,14 @@ void LedController::setThermostat(Thermostat* newThermostat)
         {
             case OFF: Serial.print("OFF"); break;
             case HEAT: Serial.print("HEAT"); break;
-            case BOOST: Serial.print("BOOST"); break;
+            default: Serial.print("UNKNOWN"); break;
         };
         Serial.print(" (Previous: ");
         switch(previousMode)
         {
             case OFF: Serial.print("OFF"); break;
             case HEAT: Serial.print("HEAT"); break;
-            case BOOST: Serial.print("BOOST"); break;
+            default: Serial.print("UNKNOWN"); break;
         }
         Serial.println(")");
 
