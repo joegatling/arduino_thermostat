@@ -431,7 +431,12 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
     LOG.println();
     
     String topicStr = String(topic);
-    String payloadStr = String((char*)payload).substring(0, length);
+    String payloadStr;
+    payloadStr.reserve(length);
+    for (unsigned int i = 0; i < length; ++i)
+    {
+        payloadStr += (char)payload[i];
+    }
 
     String modeCommandTopic = buildTopic(MODE_COMMAND_TOPIC_SUFFIX);
     String targetTemperatureTopic = buildTopic(TARGET_TEMPERATURE_COMMAND_TOPIC_SUFFIX);
