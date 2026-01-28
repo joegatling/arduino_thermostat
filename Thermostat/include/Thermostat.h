@@ -143,8 +143,8 @@ private:
     void updateHeater();
 
     AutoPIDRelay heaterPID;
-    DallasTemperature sensors;
     OneWire oneWire;
+    DallasTemperature sensors;
 
     EventEmitter<float> onTargetTemperatureChangedEvent;
     EventEmitter<float> onCurrentTemperatureChangedEvent;
