@@ -183,8 +183,6 @@ void Thermostat::updateCurrentTemperature()
 
 void Thermostat::updateHeater()
 {
-    heaterPID.run();
-
     if(currentMode == OFF)
     {
         heaterTargetTemperature = MIN_VALID_TEMP;
@@ -210,6 +208,7 @@ void Thermostat::updateHeater()
             heaterTargetTemperature = targetTemperature;
         }
 
+        heaterPID.run();
         heaterState.setValue(pidState);         
     }
 
