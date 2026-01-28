@@ -1,5 +1,5 @@
 #include "MqttController.h"
-#include "LEDController.h"
+#include "LedController.h"
 
 #define LOG Serial
 
@@ -468,7 +468,7 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
 
         thermostat->setTargetTemperature(targetTemp, true);
 
-        thermostat->setMode(HEAT);
+        //thermostat->setMode(HEAT);
 
         if(thermostat->getCurrentTemperature() < thermostat->getTargetTemperature())
         {
