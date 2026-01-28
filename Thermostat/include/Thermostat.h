@@ -14,6 +14,7 @@
 
 #define F_TO_C(t) ((t - 32) * 5.0f / 9.0f)
 #define C_TO_F(t) ((t * 9.0f / 5.0f) + 32)
+#define C_TO_F_DELTA(t) ((t * 9.0f / 5.0f))
 
 enum ThermostatMode
 {
