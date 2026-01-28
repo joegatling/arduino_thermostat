@@ -183,6 +183,12 @@ void Thermostat::updateCurrentTemperature()
 
 void Thermostat::updateHeater()
 {
+    // If there's a temperature sensor error, switch to OFF mode for safety
+    if(isTemperatureError && currentMode != OFF)
+    {
+        setMode(OFF);
+    }
+
     if(currentMode == OFF)
     {
         heaterTargetTemperature = MIN_VALID_TEMP;
