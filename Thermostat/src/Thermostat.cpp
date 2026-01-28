@@ -208,8 +208,6 @@ void Thermostat::updateHeater()
             heaterTargetTemperature = targetTemperature;
         }
 
-
-        heaterTargetTemperature = targetTemperature;
         heaterPID.run();
         heaterState.setValue(pidState);         
     }
