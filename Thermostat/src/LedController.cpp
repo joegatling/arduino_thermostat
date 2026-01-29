@@ -13,6 +13,7 @@ LedController::LedController() :
     lastHeaterModeChangeTime(0),
     lastTargetTemperatureTime(0),
     lastStatusMessageTime(0),
+    lastPresetChangeTime(0),
 
     statusMessage(""),
     statusMessageWidth(0),
@@ -109,6 +110,34 @@ void LedController::setThermostat(Thermostat* newThermostat)
         }
     });
 
+    thermostat->onPresetChanged([this](ThermostatPreset newPreset)
+    {        
+        lastPresetChangeTime = millis();
+        
+        previousPreset = currentPreset;
+        currentPreset = newPreset;
+
+        Serial.print("Thermostat preset: ");
+        switch(currentPreset)
+        {
+            case NONE: Serial.print("NONE"); break;
+            case ECO: Serial.print("ECO"); break;
+            case BOOST: Serial.print("BOOST"); break;
+            case SLEEP: Serial.print("SLEEP"); break;
+            default: Serial.print("UNKNOWN"); break;
+        };
+        Serial.print(" (Previous: ");
+        switch(previousPreset)
+        {
+            case NONE: Serial.print("NONE"); break;
+            case ECO: Serial.print("ECO"); break;
+            case BOOST: Serial.print("BOOST"); break;
+            case SLEEP: Serial.print("SLEEP"); break;
+            default: Serial.print("UNKNOWN"); break;
+        }
+        Serial.println(")");
+    });
+
     thermostat->onUseFahrenheitChanged([this](bool newUseFahrenheit)
     {
         useFahrenheit = newUseFahrenheit;
@@ -117,8 +146,11 @@ void LedController::setThermostat(Thermostat* newThermostat)
 
     // Get the current state of the thermostat
     currentTemperature = thermostat->getCurrentTemperature();
+    targetTemperature = thermostat->getTargetTemperature();
     currentMode = thermostat->getMode();
     previousMode = currentMode;
+    currentPreset = thermostat->getPreset();
+    previousPreset = currentPreset;
     useFahrenheit = thermostat->isUsingFahrenheit();
 }
 
@@ -296,17 +328,14 @@ void LedController::updateMatrix()
 
     if(shouldShowStatusMessage())
     {
-        //Serial.println("Showing status message");
         drawStatusMessage();
     }
     else if(shouldShowTargetTemperature())
     {  
-        //Serial.println("Showing target temperature");
         drawTargetTemperature();
     }
     else
     {
-        //Serial.println("Showing current temperature");
         drawCurrentTemperature();
     }
     
@@ -315,16 +344,67 @@ void LedController::updateMatrix()
 
 void LedController::updateNeoPixel()
 {
-    if(thermostat != nullptr && thermostat->getPreset() == BOOST)
-    {
-        pixel.rainbow((millis()*20) % 0xFFFF);
-        pixel.show();
-    }
-    else
+    if(thermostat == nullptr)
     {
         pixel.clear();
         pixel.show();
+        return;
     }
+
+    if(thermostat->getMode() == OFF)
+    {
+        pixel.clear();
+        pixel.show();
+        return;
+    }
+
+    if(thermostat->getPreset() == BOOST)
+    {
+        pixel.rainbow((millis()*20) % 0xFFFF);
+        pixel.show();
+        return;
+    }
+
+    const long presetFlashTime = 800;
+    if(lastPresetChangeTime + presetFlashTime > millis())
+    {
+        float t = (float)(millis() - lastPresetChangeTime) / presetFlashTime;
+        if (t > 1.0f) t = 1.0f;
+        if (t < 0.0f) t = 0.0f;
+
+        uint8_t brightness = (uint8_t)((1.0f - t) * 255);
+        uint8_t r = 0;
+        uint8_t g = 0;
+        uint8_t b = 0;
+
+        if (currentPreset == ECO)
+        {
+            r = 64;
+            g = 255;
+            b = 64;
+        }
+        else if (currentPreset == SLEEP)
+        {
+            r = 64;
+            g = 64;
+            b = 255;
+        }
+        else
+        {
+            r = 64;
+            g = 64;
+            b = 64;
+        }
+
+        // Flash blue briefly on preset change
+        pixel.fill(pixel.Color(r*brightness,g*brightness,b*brightness));
+        pixel.show();
+        return;
+    }
+
+    pixel.clear();
+    pixel.show();
+    return;
 }
 
 void LedController::setLightColor(uint8_t r, uint8_t g, uint8_t b)
