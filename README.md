@@ -1,5 +1,13 @@
-# arduino_thermostat
-Arduino thermostat with server communication for remote control
+# Yellow Boxy Thermostat
+A DIY smart thermostat for Home Assistant using MQTT
 
-# Getting Started
-Copy ArduinoThermistat/Configuration-Example.c and rename it ArduinoThermostat/Configuration.c. Update this file with your thermostat and wifi details.
+# Features
+- Stylish DIY chunky LED screen
+- Simple controls
+- C or F operating modes
+- Wifi connected
+- Automatic Home Assistant configuration
+- Supports presets
+  - BOOST: For extra heat when you want it
+  - SLEEP: Slightly cooler for a comfortable sleep
+
