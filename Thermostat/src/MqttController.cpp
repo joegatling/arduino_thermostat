@@ -507,22 +507,34 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
         
         if (payloadStr == "boost")
         {
-            ledController->showStatusMessage("BOOST", false, true);
+            if (ledController != nullptr)
+            {
+                ledController->showStatusMessage("BOOST", false, true);
+            }
             thermostat->setPreset(BOOST);
         }
         else if(payloadStr == "sleep")
         {
-            ledController->showStatusMessage("SLEEP", false, true);
+            if (ledController != nullptr)
+            {
+                ledController->showStatusMessage("SLEEP", false, true);
+            }
             thermostat->setPreset(SLEEP);
         }
         else if (payloadStr == "eco")
         {
-            ledController->showStatusMessage("ECO", false, true);
+            if (ledController != nullptr)
+            {
+                ledController->showStatusMessage("ECO", false, true);
+            }
             thermostat->setPreset(ECO);
         }
         else if (payloadStr == "none")
         {
-            ledController->showStatusMessage("NONE", false, true);
+            if (ledController != nullptr)
+            {
+                ledController->showStatusMessage("NONE", false, true);
+            }
             thermostat->setPreset(NONE);
         }
         else
