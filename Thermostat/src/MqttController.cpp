@@ -126,6 +126,7 @@ void MqttController::sendDiscoveryMessage()
 
     doc["origin"]["name"] = "mqtt";
 
+    doc["components"]["climate"]["qos"] = 1;
     doc["components"]["climate"]["platform"] = "climate";
     doc["components"]["climate"]["name"] = "Thermostat";
     doc["components"]["climate"]["unique_id"] = getDeviceId() + "_climate";    
@@ -473,9 +474,8 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
 
         thermostat->setTargetTemperature(targetTemp, true);
 
-        //thermostat->setMode(HEAT);
-
-        if(thermostat->getCurrentTemperature() < thermostat->getTargetTemperature())
+        if (thermostat->getCurrentTemperature() < thermostat->getTargetTemperature() && 
+            thermostat->getMode() == HEAT)
         {
             thermostat->setPreset(BOOST);
         }
@@ -504,26 +504,32 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
     }
     else if (topicStr == presetModeCommandTopic)
     {
+        
         if (payloadStr == "boost")
         {
+            ledController->showStatusMessage("BOOST", false, true);
             thermostat->setPreset(BOOST);
         }
         else if(payloadStr == "sleep")
         {
+            ledController->showStatusMessage("SLEEP", false, true);
             thermostat->setPreset(SLEEP);
         }
         else if (payloadStr == "eco")
         {
+            ledController->showStatusMessage("ECO", false, true);
             thermostat->setPreset(ECO);
         }
         else if (payloadStr == "none")
         {
+            ledController->showStatusMessage("NONE", false, true);
             thermostat->setPreset(NONE);
         }
         else
         {
             LOG.print("Unknown preset mode: ");
             LOG.println(payloadStr);
+
         }
     }
     else

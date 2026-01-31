@@ -379,14 +379,14 @@ void LedController::updateNeoPixel()
 
         if (currentPreset == ECO)
         {
-            r = 64;
+            r = 0;
             g = 255;
-            b = 64;
+            b = 0;
         }
         else if (currentPreset == SLEEP)
         {
-            r = 64;
-            g = 64;
+            r = 0;
+            g = 0;
             b = 255;
         }
         else
