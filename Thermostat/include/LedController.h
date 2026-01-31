@@ -66,9 +66,13 @@ private:
     unsigned long lastCurrentTemperatureTime = 0;
     unsigned long lastHeaterModeChangeTime = 0;
     unsigned long lastStatusMessageTime = 0;
+    unsigned long lastPresetChangeTime = 0;
 
     ThermostatMode previousMode = OFF;
     ThermostatMode currentMode = OFF;
+
+    ThermostatPreset currentPreset = NONE;
+    ThermostatPreset previousPreset = NONE;
 
     String statusMessage;
     bool isQuickMessage = false;
