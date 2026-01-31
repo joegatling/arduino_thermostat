@@ -397,7 +397,11 @@ void LedController::updateNeoPixel()
         }
 
         // Briefly flash a color based on the current preset (ECO: green, SLEEP: blue, others: gray)
-        pixel.fill(pixel.Color(r*brightness,g*brightness,b*brightness));
+        pixel.fill(pixel.Color(
+            (uint8_t)(((uint16_t)r * brightness) / 255),
+            (uint8_t)(((uint16_t)g * brightness) / 255),
+            (uint8_t)(((uint16_t)b * brightness) / 255)
+        ));
         pixel.show();
         return;
     }
