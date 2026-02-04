@@ -62,7 +62,7 @@ private:
 
     bool isReady();
 
-    String getDeviceId();
+    void generateClientId();
     String buildTopic(const char* suffix);
 
     WiFiClient espClient;
@@ -76,6 +76,9 @@ private:
     String deviceName;
 
     char msg[MSG_BUFFER_SIZE];
+
+    char clientId[16];
+    char availabilityTopic[64];
 
     Thermostat* thermostat;
     LedController* ledController;

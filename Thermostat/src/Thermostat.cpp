@@ -198,9 +198,12 @@ void Thermostat::updateHeater()
     }
     else if(currentMode == HEAT)
     {
+        bool forceOn = false;
+
         if(currentPreset == BOOST)
         {
-            heaterTargetTemperature = targetTemperature + (useFahrenheit ? C_TO_F_DELTA(10.0f) : 10.0f);
+            heaterTargetTemperature = targetTemperature;
+            forceOn = currentTemperature < targetTemperature;
 
             if(millis() - lastPresetChangeTime >= GEORGE_BOOST_TIME) // Automatically return to eco preset
             {
@@ -217,7 +220,7 @@ void Thermostat::updateHeater()
         }
 
         heaterPID.run();
-        heaterState.setValue(pidState);         
+        heaterState.setValue(pidState || forceOn, forceOn);         
     }
 
     if(previousHeaterState != heaterState.getValue())
