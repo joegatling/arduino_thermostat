@@ -450,8 +450,7 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
     String targetTemperatureTopic = buildTopic(TARGET_TEMPERATURE_COMMAND_TOPIC_SUFFIX);
     String displayMessageCommandTopic = buildTopic(DISPLAY_MESSAGE_COMMAND_TOPIC_SUFFIX);
     String presetModeCommandTopic = buildTopic(PRESET_MODE_COMMAND_TOPIC_SUFFIX);
-    
-    #pragma region Mode Command
+        
     if (topicStr == modeCommandTopic)
     {
         if (payloadStr == "off")
@@ -468,9 +467,6 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
             LOG.println(payloadStr);
         }
     }
-    #pragma endregion
-
-    #pragma region Target Temperature Command
     else if (topicStr == targetTemperatureTopic)
     {
         float targetTemp = payloadStr.toFloat();
@@ -496,9 +492,6 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
             thermostat->setPreset(BOOST);
         }
     }
-    #pragma endregion
-
-    #pragma region Display Message Command
     else if (topicStr == displayMessageCommandTopic)
     {
         if (ledController != nullptr)
@@ -521,9 +514,6 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
             LOG.println("LED Controller not initialized");
         }
     }
-    #pragma endregion
-
-    #pragma region Preset Mode Command
     else if (topicStr == presetModeCommandTopic)
     {
         
@@ -566,15 +556,11 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
 
         }
     }
-    #pragma endregion
-
-    #pragma region Unknown Topic
     else
     {
         LOG.print("Unknown topic: ");
         LOG.println(topicStr);
     }
-    #pragma endregion
 }
 
 void MqttController::generateClientId()
