@@ -220,7 +220,9 @@ void Thermostat::updateHeater()
         }
 
         heaterPID.run();
-        heaterState.setValue(pidState || forceOn, forceOn);         
+        bool desiredState = pidState || forceOn;
+        bool ignoreMinToggleTime = forceOn && !heaterState.getValue() && desiredState;
+        heaterState.setValue(desiredState, ignoreMinToggleTime);
     }
 
     if(previousHeaterState != heaterState.getValue())
