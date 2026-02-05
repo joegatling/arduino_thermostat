@@ -12,7 +12,8 @@ MqttController::MqttController():
     mqtt_password(""),
     mqttClient(espClient),
     deviceName("Thermostat"),
-    lastReconnectAttemptTime(0)
+    lastReconnectAttemptTime(0),
+    hasConnectedSinceBoot(false)
 {
     generateClientId();
 
@@ -376,10 +377,15 @@ void MqttController::connectMqtt()
             sendCallForHeatTopic();
             sendActionTopic();
 
-            // Do not send command topics on connect
-            // sendTargetTemperatureTopic();
-            // sendModeTopic();
-            // sendPresetModeTopic();
+            if(hasConnectedSinceBoot == true)
+            {
+                sendTargetTemperatureTopic();
+                sendModeTopic();
+                sendPresetModeTopic();
+
+            }
+
+            hasConnectedSinceBoot = true;
         }
         else
         {

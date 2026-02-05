@@ -84,5 +84,6 @@ private:
     LedController* ledController;
 
     unsigned long lastReconnectAttemptTime = 0;
+    bool hasConnectedSinceBoot = false;
 
 };
