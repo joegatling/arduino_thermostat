@@ -69,6 +69,11 @@ void MqttController::setThermostat(Thermostat* newThermostat)
         sendActionTopic();
     });
 
+    thermostat->onPresetChanged([this](ThermostatPreset newPreset)
+    {
+        sendPresetTopic();
+    });
+
     thermostat->onHeaterPowerChanged([this](bool newHeaterPowerState)
     {
         sendCallForHeatTopic();
@@ -146,8 +151,8 @@ void MqttController::sendDiscoveryMessage()
     doc["components"]["climate"]["temperature_command_topic"] = buildTopic(TARGET_TEMPERATURE_COMMAND_TOPIC_SUFFIX);
     doc["components"]["climate"]["temperature_state_topic"] = buildTopic(TARGET_TEMPERATURE_STATE_TOPIC_SUFFIX);
     doc["components"]["climate"]["availability_topic"] = buildTopic(AVAILABILITY_TOPIC_SUFFIX);
-    doc["components"]["climate"]["preset_mode_command_topic"] = buildTopic(PRESET_MODE_COMMAND_TOPIC_SUFFIX);
-    doc["components"]["climate"]["preset_mode_state_topic"] = buildTopic(PRESET_MODE_STATE_TOPIC_SUFFIX);
+    doc["components"]["climate"]["preset_mode_command_topic"] = buildTopic(PRESET_COMMAND_TOPIC_SUFFIX);
+    doc["components"]["climate"]["preset_mode_state_topic"] = buildTopic(PRESET_STATE_TOPIC_SUFFIX);
     doc["components"]["climate"]["preset_modes"] = JsonArray();
     doc["components"]["climate"]["preset_modes"].add("eco");
     doc["components"]["climate"]["preset_modes"].add("boost");
@@ -267,11 +272,11 @@ void MqttController::sendCallForHeatTopic()
     mqttClient.publish(topic.c_str(), powerStateStr.c_str(), true);
 }
 
-void MqttController::sendPresetModeTopic()
+void MqttController::sendPresetTopic()
 {
     if(!isReady()) return; 
 
-    String topic = buildTopic(PRESET_MODE_STATE_TOPIC_SUFFIX);
+    String topic = buildTopic(PRESET_STATE_TOPIC_SUFFIX);
     String presetModeStr;
     switch (thermostat->getPreset())
     {
@@ -285,10 +290,8 @@ void MqttController::sendPresetModeTopic()
             presetModeStr = "sleep";
             break;
         case NONE:
-            presetModeStr = "none";
-            break;
         default:
-            presetModeStr = "eco";
+            presetModeStr = "none";
             break;
     }
     mqttClient.publish(topic.c_str(), presetModeStr.c_str(), true);
@@ -345,8 +348,9 @@ void MqttController::connectMqtt()
 
             String modeCommandTopic = buildTopic(MODE_COMMAND_TOPIC_SUFFIX);
             String targetTemperatureCommandTopic = buildTopic(TARGET_TEMPERATURE_COMMAND_TOPIC_SUFFIX);
+            String targetTemperatureStateTopic = buildTopic(TARGET_TEMPERATURE_STATE_TOPIC_SUFFIX);
             String displayMessageCommandTopic = buildTopic(DISPLAY_MESSAGE_COMMAND_TOPIC_SUFFIX);
-            String presetModeCommandTopic = buildTopic(PRESET_MODE_COMMAND_TOPIC_SUFFIX);
+            String presetModeCommandTopic = buildTopic(PRESET_COMMAND_TOPIC_SUFFIX);
 
             mqttClient.subscribe(modeCommandTopic.c_str());
             LOG.print("Subscribed: ");
@@ -355,6 +359,10 @@ void MqttController::connectMqtt()
             mqttClient.subscribe(targetTemperatureCommandTopic.c_str());
             LOG.print("Subscribed: ");
             LOG.println(targetTemperatureCommandTopic);
+
+            mqttClient.subscribe(targetTemperatureStateTopic.c_str());
+            LOG.print("Subscribed (Temporarily): ");
+            LOG.println(targetTemperatureStateTopic);            
 
             mqttClient.subscribe(displayMessageCommandTopic.c_str());
             LOG.print("Subscribed: ");
@@ -381,8 +389,7 @@ void MqttController::connectMqtt()
             {
                 sendTargetTemperatureTopic();
                 sendModeTopic();
-                sendPresetModeTopic();
-
+                sendPresetTopic();
             }
 
             hasConnectedSinceBoot = true;
@@ -454,8 +461,9 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
 
     String modeCommandTopic = buildTopic(MODE_COMMAND_TOPIC_SUFFIX);
     String targetTemperatureTopic = buildTopic(TARGET_TEMPERATURE_COMMAND_TOPIC_SUFFIX);
+    String targetTemperatureStateTopic = buildTopic(TARGET_TEMPERATURE_STATE_TOPIC_SUFFIX);
     String displayMessageCommandTopic = buildTopic(DISPLAY_MESSAGE_COMMAND_TOPIC_SUFFIX);
-    String presetModeCommandTopic = buildTopic(PRESET_MODE_COMMAND_TOPIC_SUFFIX);
+    String presetCommandTopic = buildTopic(PRESET_COMMAND_TOPIC_SUFFIX);
         
     if (topicStr == modeCommandTopic)
     {
@@ -520,7 +528,7 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
             LOG.println("LED Controller not initialized");
         }
     }
-    else if (topicStr == presetModeCommandTopic)
+    else if (topicStr == presetCommandTopic)
     {
         
         if (payloadStr == "boost")
@@ -551,7 +559,7 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
         {
             if (ledController != nullptr)
             {
-                ledController->showStatusMessage("NONE", false, true);
+                ledController->showStatusMessage("NO PRESET", false, true);
             }
             thermostat->setPreset(NONE);
         }
@@ -559,8 +567,27 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
         {
             LOG.print("Unknown preset mode: ");
             LOG.println(payloadStr);
-
         }
+    }
+    else if (topicStr == targetTemperatureStateTopic)
+    {
+        // Subscribe to this temporarily to receive the target temperature from the broker on boot
+        // We will then unsubscribe since this topic is meant to be a state topic, not a command topic
+        float targetTemp = payloadStr.toFloat();   
+
+        // Since we are a heat-only thermostat, we can assume a 0 target is invalid
+        if(targetTemp > 0 == false)
+        {
+            LOG.print("Invalid target temperature: ");
+            LOG.println(payloadStr);
+            return;
+        }            
+
+        mqttClient.unsubscribe(targetTemperatureStateTopic.c_str());
+        LOG.print("Unsubscribed: ");
+        LOG.println(targetTemperatureStateTopic);
+
+        thermostat->setTargetTemperature(targetTemp, true);
     }
     else
     {

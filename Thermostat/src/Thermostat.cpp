@@ -54,7 +54,7 @@ Thermostat::~Thermostat()
     digitalWrite(HEATER_RELAY_PIN, LOW);
 }
 
-void Thermostat::setTargetTemperature(float newTargetTemperature, bool forceCelsius)
+void Thermostat::setTargetTemperature(float newTargetTemperature, bool forceCelsius, bool localOnly)
 {
     // If forceCelsius is true, then the temperature will be provided in celsius, ignoring
     // the current unit setting.
@@ -75,7 +75,11 @@ void Thermostat::setTargetTemperature(float newTargetTemperature, bool forceCels
         newTargetTemperature = min(ABSOLUTE_MAX_TEMP_C, newTargetTemperature);
     }
  
-    if (fabs(targetTemperature - newTargetTemperature) >= MIN_TEMPERATURE_DIFFEREENCE) 
+    if (localOnly)
+    {
+        targetTemperature = newTargetTemperature;
+    }
+    else if (fabs(newTargetTemperature - targetTemperature) >= MIN_TEMPERATURE_DIFFEREENCE)
     {
         targetTemperature = newTargetTemperature;
         onTargetTemperatureChangedEvent.emit(newTargetTemperature);
