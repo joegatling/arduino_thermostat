@@ -56,8 +56,11 @@ struct TimeDelayBoolean
 
         if(ignoreMinToggleTime)
         {
-            currentState = targetState;
-            lastToggleTime = millis();
+            if(currentState != targetState)
+            {
+                currentState = targetState;
+                lastToggleTime = millis();
+            }
         }
         else
         {
@@ -111,7 +114,7 @@ public:
     Thermostat();
     ~Thermostat();
 
-    void setTargetTemperature(float temperature, bool forceCelsius = false);
+    void setTargetTemperature(float temperature, bool forceCelsius = false, bool localOnly = false);
     float getTargetTemperature(bool forceCelsius = false);
 
     float getCurrentTemperature(bool forceCelsius = false);

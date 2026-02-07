@@ -12,8 +12,11 @@ MqttController::MqttController():
     mqtt_password(""),
     mqttClient(espClient),
     deviceName("Thermostat"),
-    lastReconnectAttemptTime(0)
+    lastReconnectAttemptTime(0),
+    hasConnectedSinceBoot(false)
 {
+    generateClientId();
+
     mqttClient.setServer(mqtt_server.c_str(), mqtt_port);
     mqttClient.setBufferSize(MSG_BUFFER_SIZE);
     mqttClient.setCallback([this](char* topic, byte* payload, unsigned int length)
@@ -66,6 +69,11 @@ void MqttController::setThermostat(Thermostat* newThermostat)
         sendActionTopic();
     });
 
+    thermostat->onPresetChanged([this](ThermostatPreset newPreset)
+    {
+        sendPresetTopic();
+    });
+
     thermostat->onHeaterPowerChanged([this](bool newHeaterPowerState)
     {
         sendCallForHeatTopic();
@@ -110,7 +118,9 @@ void MqttController::sendDiscoveryMessage()
 
     LOG.println("Sending Discovery Message...");
 
-    String baseTopic = String(DISCOVERY_PREFIX) + "/device/" + getDeviceId() + "_device/config";
+    String clientIdString = String(clientId);
+
+    String baseTopic = String(DISCOVERY_PREFIX) + "/device/" + clientIdString + "_device/config";
     
     JsonDocument doc;
 
@@ -122,14 +132,13 @@ void MqttController::sendDiscoveryMessage()
     doc["device"]["name"] = deviceName;
     doc["device"]["manufacturer"] = "Joe Gatling";
     doc["device"]["model"] = "Yellow Boxy"; 
-    doc["device"]["identifiers"][0] = getDeviceId() + "_device";
-
+    doc["device"]["identifiers"][0] = clientIdString + "_device";
     doc["origin"]["name"] = "mqtt";
 
     doc["components"]["climate"]["qos"] = 1;
     doc["components"]["climate"]["platform"] = "climate";
     doc["components"]["climate"]["name"] = "Thermostat";
-    doc["components"]["climate"]["unique_id"] = getDeviceId() + "_climate";    
+    doc["components"]["climate"]["unique_id"] = clientIdString + "_climate";    
     doc["components"]["climate"]["temperature_unit"] = "C";
     doc["components"]["climate"]["min_temp"] = 16;
     doc["components"]["climate"]["max_temp"] = 27;    
@@ -142,8 +151,8 @@ void MqttController::sendDiscoveryMessage()
     doc["components"]["climate"]["temperature_command_topic"] = buildTopic(TARGET_TEMPERATURE_COMMAND_TOPIC_SUFFIX);
     doc["components"]["climate"]["temperature_state_topic"] = buildTopic(TARGET_TEMPERATURE_STATE_TOPIC_SUFFIX);
     doc["components"]["climate"]["availability_topic"] = buildTopic(AVAILABILITY_TOPIC_SUFFIX);
-    doc["components"]["climate"]["preset_mode_command_topic"] = buildTopic(PRESET_MODE_COMMAND_TOPIC_SUFFIX);
-    doc["components"]["climate"]["preset_mode_state_topic"] = buildTopic(PRESET_MODE_STATE_TOPIC_SUFFIX);
+    doc["components"]["climate"]["preset_mode_command_topic"] = buildTopic(PRESET_COMMAND_TOPIC_SUFFIX);
+    doc["components"]["climate"]["preset_mode_state_topic"] = buildTopic(PRESET_STATE_TOPIC_SUFFIX);
     doc["components"]["climate"]["preset_modes"] = JsonArray();
     doc["components"]["climate"]["preset_modes"].add("eco");
     doc["components"]["climate"]["preset_modes"].add("boost");
@@ -156,21 +165,21 @@ void MqttController::sendDiscoveryMessage()
     doc["components"]["temperature"]["device_class"] = "temperature";
     doc["components"]["temperature"]["state_topic"] = buildTopic(CURRENT_TEMPERATURE_TOPIC_SUFFIX);    
     doc["components"]["temperature"]["state_class"] = "measurement";
-    doc["components"]["temperature"]["unique_id"] = getDeviceId() + "_temperature";
+    doc["components"]["temperature"]["unique_id"] = clientIdString + "_temperature";
     doc["components"]["temperature"]["availability_topic"] = buildTopic(AVAILABILITY_TOPIC_SUFFIX);
 
     doc["components"]["call_for_heat"]["platform"] = "binary_sensor";
     doc["components"]["call_for_heat"]["name"] = "Call for Heat";
     doc["components"]["call_for_heat"]["device_class"] = "power";
     doc["components"]["call_for_heat"]["state_topic"] = buildTopic(CALL_FOR_HEAT_TOPIC_SUFFIX);    
-    doc["components"]["call_for_heat"]["unique_id"] = getDeviceId() + "_call_for_heat";
+    doc["components"]["call_for_heat"]["unique_id"] = clientIdString + "_call_for_heat";
     doc["components"]["call_for_heat"]["payload_on"] = "ON";
     doc["components"]["call_for_heat"]["payload_off"] = "OFF";
     doc["components"]["call_for_heat"]["availability_topic"] = buildTopic(AVAILABILITY_TOPIC_SUFFIX);
     
     doc["components"]["display"]["platform"] = "text";
     doc["components"]["display"]["name"] = "Display Message";
-    doc["components"]["display"]["unique_id"] = getDeviceId() + "_display";
+    doc["components"]["display"]["unique_id"] = clientIdString + "_display";
     doc["components"]["display"]["command_topic"] = buildTopic(DISPLAY_MESSAGE_COMMAND_TOPIC_SUFFIX);
     doc["components"]["display"]["availability_topic"] = buildTopic(AVAILABILITY_TOPIC_SUFFIX);
     
@@ -203,7 +212,8 @@ void MqttController::sendEmptyDiscoveryMessage()
 
     LOG.print("Sending Empty Discovery Message...");
 
-    String baseTopic = String(DISCOVERY_PREFIX) + "/device/" + getDeviceId() + "_device/config";
+    String clientIdString = String(clientId);
+    String baseTopic = String(DISCOVERY_PREFIX) + "/device/" + clientIdString + "_device/config";
 
     auto result = mqttClient.publish(baseTopic.c_str(), "", true); // Retain the message
 
@@ -262,11 +272,11 @@ void MqttController::sendCallForHeatTopic()
     mqttClient.publish(topic.c_str(), powerStateStr.c_str(), true);
 }
 
-void MqttController::sendPresetModeTopic()
+void MqttController::sendPresetTopic()
 {
     if(!isReady()) return; 
 
-    String topic = buildTopic(PRESET_MODE_STATE_TOPIC_SUFFIX);
+    String topic = buildTopic(PRESET_STATE_TOPIC_SUFFIX);
     String presetModeStr;
     switch (thermostat->getPreset())
     {
@@ -280,10 +290,8 @@ void MqttController::sendPresetModeTopic()
             presetModeStr = "sleep";
             break;
         case NONE:
-            presetModeStr = "none";
-            break;
         default:
-            presetModeStr = "eco";
+            presetModeStr = "none";
             break;
     }
     mqttClient.publish(topic.c_str(), presetModeStr.c_str(), true);
@@ -323,25 +331,26 @@ void MqttController::connectMqtt()
         lastReconnectAttemptTime = millis();
         LOG.print("Connecting to MQTT...");
 
-        String availabilityTopic = buildTopic(AVAILABILITY_TOPIC_SUFFIX);
+        snprintf(availabilityTopic, sizeof(availabilityTopic), "%s", buildTopic(AVAILABILITY_TOPIC_SUFFIX).c_str());
         
         // Set Last Will and Testament: if device disconnects unexpectedly, broker publishes "offline"
         if (mqttClient.connect(
-            getDeviceId().c_str(), 
+            clientId, 
             mqtt_user.c_str(), 
             mqtt_password.c_str(),
-            availabilityTopic.c_str(),  // will_topic
-            1,                           // will_qos
-            true,                        // will_retain
-            "offline"                    // will_message
+            availabilityTopic,          // will_topic
+            1,                          // will_qos
+            true,                       // will_retain
+            "offline"                   // will_message
         ))
         {
             LOG.println("connected");
 
             String modeCommandTopic = buildTopic(MODE_COMMAND_TOPIC_SUFFIX);
             String targetTemperatureCommandTopic = buildTopic(TARGET_TEMPERATURE_COMMAND_TOPIC_SUFFIX);
+            String targetTemperatureStateTopic = buildTopic(TARGET_TEMPERATURE_STATE_TOPIC_SUFFIX);
             String displayMessageCommandTopic = buildTopic(DISPLAY_MESSAGE_COMMAND_TOPIC_SUFFIX);
-            String presetModeCommandTopic = buildTopic(PRESET_MODE_COMMAND_TOPIC_SUFFIX);
+            String presetModeCommandTopic = buildTopic(PRESET_COMMAND_TOPIC_SUFFIX);
 
             mqttClient.subscribe(modeCommandTopic.c_str());
             LOG.print("Subscribed: ");
@@ -350,6 +359,10 @@ void MqttController::connectMqtt()
             mqttClient.subscribe(targetTemperatureCommandTopic.c_str());
             LOG.print("Subscribed: ");
             LOG.println(targetTemperatureCommandTopic);
+
+            mqttClient.subscribe(targetTemperatureStateTopic.c_str());
+            LOG.print("Subscribed (Temporarily): ");
+            LOG.println(targetTemperatureStateTopic);            
 
             mqttClient.subscribe(displayMessageCommandTopic.c_str());
             LOG.print("Subscribed: ");
@@ -360,19 +373,26 @@ void MqttController::connectMqtt()
             LOG.println(presetModeCommandTopic);
 
             // Publish "online" to availability topic
-            mqttClient.publish(availabilityTopic.c_str(), "online", true);
+            mqttClient.publish(availabilityTopic, "online", true);
             LOG.print("Availability: ");
             LOG.println(availabilityTopic);
 
             // Once connected, publish an announcement...
             sendDiscoveryMessage();
 
+            // Send all sensor topics on connect
             sendCurrentTemperatureTopic();
-            sendTargetTemperatureTopic();
-            sendModeTopic();
             sendCallForHeatTopic();
-            sendPresetModeTopic();
             sendActionTopic();
+
+            if(hasConnectedSinceBoot == true)
+            {
+                sendTargetTemperatureTopic();
+                sendModeTopic();
+                sendPresetTopic();
+            }
+
+            hasConnectedSinceBoot = true;
         }
         else
         {
@@ -441,9 +461,10 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
 
     String modeCommandTopic = buildTopic(MODE_COMMAND_TOPIC_SUFFIX);
     String targetTemperatureTopic = buildTopic(TARGET_TEMPERATURE_COMMAND_TOPIC_SUFFIX);
+    String targetTemperatureStateTopic = buildTopic(TARGET_TEMPERATURE_STATE_TOPIC_SUFFIX);
     String displayMessageCommandTopic = buildTopic(DISPLAY_MESSAGE_COMMAND_TOPIC_SUFFIX);
-    String presetModeCommandTopic = buildTopic(PRESET_MODE_COMMAND_TOPIC_SUFFIX);
-
+    String presetCommandTopic = buildTopic(PRESET_COMMAND_TOPIC_SUFFIX);
+        
     if (topicStr == modeCommandTopic)
     {
         if (payloadStr == "off")
@@ -471,10 +492,15 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
             LOG.println(payloadStr);
             return;
         }
+                
+        if(targetTemp > thermostat->getCurrentTemperature(true))
+        {
+            thermostat->setMode(HEAT);
+        }
 
         thermostat->setTargetTemperature(targetTemp, true);
 
-        if (thermostat->getCurrentTemperature() < thermostat->getTargetTemperature() && 
+        if (thermostat->getCurrentTemperature(true) < thermostat->getTargetTemperature(true) && 
             thermostat->getMode() == HEAT)
         {
             thermostat->setPreset(BOOST);
@@ -502,7 +528,7 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
             LOG.println("LED Controller not initialized");
         }
     }
-    else if (topicStr == presetModeCommandTopic)
+    else if (topicStr == presetCommandTopic)
     {
         
         if (payloadStr == "boost")
@@ -533,7 +559,7 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
         {
             if (ledController != nullptr)
             {
-                ledController->showStatusMessage("NONE", false, true);
+                ledController->showStatusMessage("NO PRESET", false, true);
             }
             thermostat->setPreset(NONE);
         }
@@ -541,8 +567,27 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
         {
             LOG.print("Unknown preset mode: ");
             LOG.println(payloadStr);
-
         }
+    }
+    else if (topicStr == targetTemperatureStateTopic)
+    {
+        // Subscribe to this temporarily to receive the target temperature from the broker on boot
+        // We will then unsubscribe since this topic is meant to be a state topic, not a command topic
+        float targetTemp = payloadStr.toFloat();   
+
+        // Since we are a heat-only thermostat, we can assume a 0 target is invalid
+        if(targetTemp > 0 == false)
+        {
+            LOG.print("Invalid target temperature: ");
+            LOG.println(payloadStr);
+            return;
+        }            
+
+        mqttClient.unsubscribe(targetTemperatureStateTopic.c_str());
+        LOG.print("Unsubscribed: ");
+        LOG.println(targetTemperatureStateTopic);
+
+        thermostat->setTargetTemperature(targetTemp, true);
     }
     else
     {
@@ -551,13 +596,12 @@ void MqttController::callback(char* topic, byte* payload, unsigned int length)
     }
 }
 
-String MqttController::getDeviceId()
+void MqttController::generateClientId()
 {
     uint8_t mac[6];
     WiFi.macAddress(mac);
-    char deviceId[13];
-    snprintf(deviceId, sizeof(deviceId), "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    return String(deviceId);
+
+    snprintf(clientId, sizeof(clientId), "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 }
 
 void MqttController::setDeviceName(const String& name)

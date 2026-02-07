@@ -21,8 +21,8 @@ class LedController; // Forward declaration
 #define CALL_FOR_HEAT_TOPIC_SUFFIX                   "/call_for_heat"
 #define AVAILABILITY_TOPIC_SUFFIX                    "/availability"
 #define DISPLAY_MESSAGE_COMMAND_TOPIC_SUFFIX         "/display/set"
-#define PRESET_MODE_COMMAND_TOPIC_SUFFIX             "/preset/set"
-#define PRESET_MODE_STATE_TOPIC_SUFFIX               "/preset"
+#define PRESET_COMMAND_TOPIC_SUFFIX                  "/preset/set"
+#define PRESET_STATE_TOPIC_SUFFIX                    "/preset"
 #define ACTION_TOPIC_SUFFIX                          "/action"
 
 #define RECONNECT_INTERVAL_MS              5000
@@ -52,7 +52,7 @@ private:
     void sendTargetTemperatureTopic();
     void sendModeTopic();
     void sendCallForHeatTopic();
-    void sendPresetModeTopic();
+    void sendPresetTopic();
     void sendActionTopic();
     
     void connectMqtt();
@@ -62,7 +62,7 @@ private:
 
     bool isReady();
 
-    String getDeviceId();
+    void generateClientId();
     String buildTopic(const char* suffix);
 
     WiFiClient espClient;
@@ -77,9 +77,13 @@ private:
 
     char msg[MSG_BUFFER_SIZE];
 
+    char clientId[16];
+    char availabilityTopic[64];
+
     Thermostat* thermostat;
     LedController* ledController;
 
     unsigned long lastReconnectAttemptTime = 0;
+    bool hasConnectedSinceBoot = false;
 
 };
