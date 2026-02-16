@@ -23,7 +23,7 @@
 // Temperature sensor
 
 Thermostat::Thermostat() :
-    heaterPID(&currentTemperature, &heaterTargetTemperature, &pidState, HEATER_RELAY_WINDOW_SIZE, THERMOSTAT_KP, THERMOSTAT_KI, THERMOSTAT_KD),
+    heaterPID(&heaterTargetTemperature, &currentTemperature, &pidState, HEATER_RELAY_WINDOW_SIZE, THERMOSTAT_KP, THERMOSTAT_KI, THERMOSTAT_KD),
     oneWire(ONE_WIRE_PIN),
     sensors(&oneWire),
 
@@ -217,7 +217,6 @@ void Thermostat::updateHeater()
         else if(currentPreset == SLEEP)
         {
             heaterTargetTemperature = targetTemperature - (useFahrenheit ? C_TO_F_DELTA(3.0f) : 3.0f);
-            forceOn = currentTemperature < heaterTargetTemperature;
         }
         else
         {
