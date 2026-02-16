@@ -47,6 +47,9 @@ Thermostat::Thermostat() :
 
     sensors.setWaitForConversion(false);    
     sensors.requestTemperatures(); // Get initial temperature reading
+    
+    heaterPID.setBangBang(1.0);  // Set bang-bang threshold for relay control
+    heaterPID.setTimeStep(1000);  // Update PID every 1 second
 }
 
 Thermostat::~Thermostat()
