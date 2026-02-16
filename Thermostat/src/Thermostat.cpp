@@ -23,7 +23,7 @@
 // Temperature sensor
 
 Thermostat::Thermostat() :
-    heaterPID(&heaterTargetTemperature, &currentTemperature, &pidState, HEATER_RELAY_WINDOW_SIZE, THERMOSTAT_KP, THERMOSTAT_KI, THERMOSTAT_KD),
+    heaterPID(&currentTemperature, &heaterTargetTemperature, &pidState, HEATER_RELAY_WINDOW_SIZE, THERMOSTAT_KP, THERMOSTAT_KI, THERMOSTAT_KD),
     oneWire(ONE_WIRE_PIN),
     sensors(&oneWire),
 
