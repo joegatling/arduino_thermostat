@@ -217,6 +217,7 @@ void Thermostat::updateHeater()
         else if(currentPreset == SLEEP)
         {
             heaterTargetTemperature = targetTemperature - (useFahrenheit ? C_TO_F_DELTA(3.0f) : 3.0f);
+            forceOn = currentTemperature < heaterTargetTemperature;
         }
         else
         {
